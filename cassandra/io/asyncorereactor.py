@@ -23,6 +23,7 @@ import time
 import weakref
 
 from six.moves import range
+from six import binary_type
 
 try:
     from weakref import WeakSet
@@ -49,6 +50,20 @@ def _cleanup(loop_weakref):
         return
 
     loop._cleanup()
+
+
+class _ChunkDeque(deque):
+    _empty_byte_type = binary_type()
+
+    def popchunkleft(self, size):
+        if not self:
+            raise IndexError()
+        contents = self._empty_byte_type.join(self)
+        self.clear()
+        left_chunk, remaining = contents[:size], contents[size:]
+        if remaining:
+            self.appendleft(remaining)
+        return left_chunk
 
 
 class _PipeWrapper(object):
@@ -293,7 +308,7 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
     def __init__(self, *args, **kwargs):
         Connection.__init__(self, *args, **kwargs)
 
-        self.deque = deque()
+        self.deque = _ChunkDeque()
         self.deque_lock = Lock()
 
         self._connect_socket()
@@ -337,7 +352,7 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
         while True:
             with self.deque_lock:
                 try:
-                    next_msg = self.deque.popleft()
+                    next_msg = self.deque.popchunkleft(size=self.out_buffer_size)
                 except IndexError:
                     iterations_on_empty_queue += 1
                     time.sleep(10e-6)
