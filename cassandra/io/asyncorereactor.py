@@ -137,7 +137,7 @@ class _AsyncoreUDPDispatcher(_AsyncoreDispatcher):
             d = self._socket.recvfrom(1)
             while d and d[1]:
                 d = self._socket.recvfrom(1)
-        except socket.error as e:
+        except socket.error as e:  # noqa
             pass
         self._notified = False
 
