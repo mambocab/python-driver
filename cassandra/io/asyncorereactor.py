@@ -333,13 +333,21 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
         self.close()
 
     def handle_write(self):
+        iterations_on_empty_queue = 0
         while True:
             with self.deque_lock:
                 try:
                     next_msg = self.deque.popleft()
                 except IndexError:
-                    self._writable = False
-                    return
+                    iterations_on_empty_queue += 1
+                    time.sleep(10e-6)
+                    if iterations_on_empty_queue >= 5:
+                        self._writable = False
+                        return
+                    else:
+                        continue
+                else:
+                    iterations_on_empty_queue = 0
 
             try:
                 sent = self.send(next_msg)
