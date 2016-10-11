@@ -40,6 +40,8 @@ from cassandra.connection import Connection, ConnectionShutdown, NONBLOCKING, Ti
 
 log = logging.getLogger(__name__)
 
+handle_writes, send_calls = 0, 0
+
 _dispatcher_map = {}
 
 def _cleanup(loop_weakref):
@@ -333,6 +335,8 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
         self.close()
 
     def handle_write(self):
+        global handle_writes
+        handle_writes += 1
         while True:
             with self.deque_lock:
                 try:
@@ -343,6 +347,8 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
 
             try:
                 sent = self.send(next_msg)
+                global send_calls
+                send_calls += 1
                 self._readable = True
             except socket.error as err:
                 if (err.args[0] in NONBLOCKING):
