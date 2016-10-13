@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import atexit
-from collections import deque
+from collections import deque, namedtuple
 from functools import partial
 import logging
 import os
@@ -50,6 +50,8 @@ def _cleanup(loop_weakref):
 
     loop._cleanup()
 
+
+SendResult = namedtuple('SendResult', 'unsent give_up')
 
 class _PipeWrapper(object):
 
@@ -341,7 +343,11 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                     self._writable = False
                     return
 
-            if self._attempt_send(next_msg) == 0:
+            unsent, give_up = self._attempt_send(next_msg)
+            if unsent:
+                with self.deque_lock:
+                    self.deque.appendleft(unsent)
+            if give_up:
                 return
 
     def _attempt_send(self, msg):
@@ -349,18 +355,19 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
             sent = self.send(msg)
             self._readable = True
         except socket.error as err:
+            unsent = ''
             if (err.args[0] in NONBLOCKING):
-                with self.deque_lock:
-                    self.deque.appendleft(msg)
+                unsent = msg
             else:
                 self.defunct(err)
-            return 0
+            return SendResult(unsent=unsent, give_up=True)
         else:
+            unsent, give_up = '', False
             if sent < len(msg):
-                with self.deque_lock:
-                    self.deque.appendleft(msg[sent:])
+                unsent = msg[sent:]
                 if sent == 0:
-                    return 0
+                    give_up = True
+            return SendResult(unsent=unsent, give_up=give_up)
 
     def handle_read(self):
         try:
