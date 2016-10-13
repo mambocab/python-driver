@@ -341,22 +341,26 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                     self._writable = False
                     return
 
+            if self._attempt_send(next_msg) == 0:
+                return
+
+    def _attempt_send(self, msg):
             try:
-                sent = self.send(next_msg)
+                sent = self.send(msg)
                 self._readable = True
             except socket.error as err:
                 if (err.args[0] in NONBLOCKING):
                     with self.deque_lock:
-                        self.deque.appendleft(next_msg)
+                        self.deque.appendleft(msg)
                 else:
                     self.defunct(err)
-                return
+                return 0
             else:
-                if sent < len(next_msg):
+                if sent < len(msg):
                     with self.deque_lock:
-                        self.deque.appendleft(next_msg[sent:])
+                        self.deque.appendleft(msg[sent:])
                     if sent == 0:
-                        return
+                        return 0
 
     def handle_read(self):
         try:
