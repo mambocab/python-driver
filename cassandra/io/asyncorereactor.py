@@ -355,10 +355,10 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
             sent = self.send(msg)
             self._readable = True
         except socket.error as err:
-            unsent = ''
             if err.args[0] in NONBLOCKING:
                 unsent = msg
             else:
+                unsent = ''
                 self.defunct(err)
             return SendResult(unsent=unsent, give_up=True)
         else:
