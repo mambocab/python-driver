@@ -362,10 +362,7 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 self.defunct(err)
             return SendResult(unsent=unsent, give_up=True)
         else:
-            unsent = ''
-            if sent < len(msg):
-                unsent = msg[sent:]
-            return SendResult(unsent=unsent, give_up=(sent == 0))
+            return SendResult(unsent=msg[sent:], give_up=(sent == 0))
 
     def handle_read(self):
         try:
