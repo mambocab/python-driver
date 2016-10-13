@@ -354,6 +354,7 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
         try:
             sent = self.send(msg)
             self._readable = True
+            return SendResult(unsent=msg[sent:], give_up=(sent == 0))
         except socket.error as err:
             if err.args[0] in NONBLOCKING:
                 unsent = msg
@@ -361,8 +362,6 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 unsent = ''
                 self.defunct(err)
             return SendResult(unsent=unsent, give_up=True)
-        else:
-            return SendResult(unsent=msg[sent:], give_up=(sent == 0))
 
     def handle_read(self):
         try:
