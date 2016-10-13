@@ -345,22 +345,22 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 return
 
     def _attempt_send(self, msg):
-            try:
-                sent = self.send(msg)
-                self._readable = True
-            except socket.error as err:
-                if (err.args[0] in NONBLOCKING):
-                    with self.deque_lock:
-                        self.deque.appendleft(msg)
-                else:
-                    self.defunct(err)
-                return 0
+        try:
+            sent = self.send(msg)
+            self._readable = True
+        except socket.error as err:
+            if (err.args[0] in NONBLOCKING):
+                with self.deque_lock:
+                    self.deque.appendleft(msg)
             else:
-                if sent < len(msg):
-                    with self.deque_lock:
-                        self.deque.appendleft(msg[sent:])
-                    if sent == 0:
-                        return 0
+                self.defunct(err)
+            return 0
+        else:
+            if sent < len(msg):
+                with self.deque_lock:
+                    self.deque.appendleft(msg[sent:])
+                if sent == 0:
+                    return 0
 
     def handle_read(self):
         try:
