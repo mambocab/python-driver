@@ -771,7 +771,8 @@ class Cluster(object):
                  prepare_on_all_hosts=True,
                  reprepare_on_up=True,
                  execution_profiles=None,
-                 allow_beta_protocol_version=False):
+                 allow_beta_protocol_version=False,
+                 timestamp_generator=None):
         """
         ``executor_threads`` defines the number of threads in a pool for handling asynchronous tasks such as
         extablishing connection pools or refreshing metadata.
@@ -829,6 +830,13 @@ class Cluster(object):
 
         if connection_class is not None:
             self.connection_class = connection_class
+
+        if timestamp_generator is not None:
+            if not callable(timestamp_generator):
+                raise ValueError("timestamp_generator must be callable")
+            self.timestamp_generator = timestamp_generator
+        else:
+            self.timestamp_generator = MonotonicTimestampGenerator()
 
         self.profile_manager = ProfileManager()
         self.profile_manager.profiles[EXEC_PROFILE_DEFAULT] = ExecutionProfile(self.load_balancing_policy,
@@ -1906,9 +1914,9 @@ class Session(object):
     :attr:`.Cluster` objects to guarantee unique, increasing timestamps across
     clusters, or set it to :attr:`time.time` if losing records over clock
     inconsistencies is acceptable for the application.  Custom
-    :attr:`.Cluster.timestamp_generator` objects should be callable and should,
-    like :attr:`time.time`, return the timestamp as a floating-point number
-    representing seconds since some point in time.
+    :attr:`.Cluster.timestamp_generator` objects should be callable and should
+    return the timestamp as a integer representing seconds since some point in
+    time, typically UNIX epoch.
 
     .. versionadded:: 3.8.0
     """
@@ -2106,7 +2114,7 @@ class Session(object):
 
         start_time = time.time()
         if self._protocol_version >= 3 and self.use_client_timestamp:
-            timestamp = int(start_time * 1e6)
+            timestamp = int(self.cluster.timestamp_generator() * 1e6)
         else:
             timestamp = None
 
