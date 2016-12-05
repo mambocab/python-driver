@@ -17,14 +17,17 @@ This module contains utilities for generating timestamps for client-side
 timestamp specification.
 """
 
+import logging
 import time
 from threading import Lock
 
+log = logging.getLogger(__name__)
+
 class MonotonicTimestampGenerator(object):
     """
-    An object that, when called, returns `time.time() * 1e6`, but guarantees that
-    values returned will strictly increase between calls, and logs warnings
-    when timestamps drift into the future.
+    An object that, when called, returns `time.time() * 1e6` when possible,
+    but, if the value returned by `time.time` doesn't increase, drifts into the
+    future and logs warnings.
     """
     def __init__(self):
         self.lock = Lock()
@@ -32,12 +35,20 @@ class MonotonicTimestampGenerator(object):
             self.last = 0
 
     def next_timestamp(self):
-        while True:
-            with self.lock:
-                now = time.time() * 1e6
-                if now > self.last:
-                    self.last = now
-                    return now
-                else:
-                    self.last += 1
-                    return self.last
+        with self.lock:
+            now = time.time() * 1e6
+            if now > self.last:
+                self.last = now
+                return now
+            else:
+                log.warn(
+                    "Clock skew detected: current tick ({now}) was {diff} "
+                    "microseconds behind the last generated timestamp "
+                    "({last}), returned timestamps will be artificially "
+                    "incremented to guarantee monotonicity.".format(
+                        now=now, diff=(self.last - now), last=self.last))
+                self.last += 1
+                return self.last
+
+    def __call__(self):
+        return self.next_timestamp()

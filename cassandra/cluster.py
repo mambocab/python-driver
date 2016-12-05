@@ -1912,8 +1912,8 @@ class Session(object):
     Applications can set this value for custom timestamp behavior.  For
     example, an application could share a timestamp generator across
     :attr:`.Cluster` objects to guarantee unique, increasing timestamps across
-    clusters, or set it to :attr:`time.time` if losing records over clock
-    inconsistencies is acceptable for the application.  Custom
+    clusters, or set it to to `lambda: time.time() * 1e6` if losing records
+    over clock inconsistencies is acceptable for the application.  Custom
     :attr:`.Cluster.timestamp_generator` objects should be callable and should
     return the timestamp as a integer representing seconds since some point in
     time, typically UNIX epoch.
@@ -2114,7 +2114,7 @@ class Session(object):
 
         start_time = time.time()
         if self._protocol_version >= 3 and self.use_client_timestamp:
-            timestamp = int(self.cluster.timestamp_generator() * 1e6)
+            timestamp = self.cluster.timestamp_generator()
         else:
             timestamp = None
 
