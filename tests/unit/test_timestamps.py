@@ -25,8 +25,10 @@ from cassandra import timestamps
 class TestMonotonicTimestampGenerator(unittest.TestCase):
 
     @mock.patch('cassandra.timestamps.time')
-    def _call_and_check_results(self, patched_time_module, system_times, expected_timestamps):
+    def _call_and_check_results(self, patched_time_module, system_time_expected_stamp_pairs):
         patched_time_module.time = mock.Mock()
+        system_times, expected_timestamps = zip(*system_time_expected_stamp_pairs)
+
         patched_time_module.time.side_effect = system_times
         tsg = timestamps.MonotonicTimestampGenerator()
 
@@ -39,30 +41,33 @@ class TestMonotonicTimestampGenerator(unittest.TestCase):
 
     def test_timestamps_during_and_after_same_system_time(self):
         """
+        Timestamps should increase monotonically over repeated system time.
+
         Test that MonotonicTimestampGenerator's output increases by 1 when the
         underlying system time is the same, then returns to normal when the
-        system time changes again.
+        system time increases again.
         """
         self._call_and_check_results(
-            system_times=(15.0, 15.0, 15.0, 15.01),
-            expected_timestamps=(15 * 1e6,
-                                 15 * 1e6 + 1,
-                                 15 * 1e6 + 2,
-                                 15.01 * 1e6)
+            system_time_expected_stamp_pairs=(
+                (15.0, 15 * 1e6),
+                (15.0, 15 * 1e6 + 1),
+                (15.0, 15 * 1e6 + 2),
+                (15.01, 15.01 * 1e6))
         )
 
-    @mock.patch('cassandra.timestamps.time')
-    def test_timestamps_during_and_after_backwards_system_time(self, patched_time_module):
+    def test_timestamps_during_and_after_backwards_system_time(self):
         """
+        Timestamps should increase monotonically over system time going backwards.
+
         Test that MonotonicTimestampGenerator's output increases by 1 when the
         underlying system time goes backward, then returns to normal when the
         system time increases again.
         """
         self._call_and_check_results(
-            system_times=(15.0, 13.0, 14.0, 13.5, 15.01),
-            expected_timestamps=(15 * 1e6,
-                                 15 * 1e6 + 1,
-                                 15 * 1e6 + 2,
-                                 15 * 1e6 + 3,
-                                 15.01 * 1e6)
+            system_time_expected_stamp_pairs=(
+                (15.0, 15 * 1e6),
+                (13.0, 15 * 1e6 + 1),
+                (14.0, 15 * 1e6 + 2),
+                (13.5, 15 * 1e6 + 3),
+                (15.01, 15.01 * 1e6))
         )
