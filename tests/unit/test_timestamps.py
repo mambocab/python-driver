@@ -83,3 +83,27 @@ class TestTimestampGeneratorOutput(unittest.TestCase, _TimestampTestMixin):
                 (13.5, 15 * 1e6 + 3),
                 (15.01, 15.01 * 1e6))
         )
+
+class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
+
+    def assertLastCallArgsRegex(self, call, pattern):
+        last_warn_args, last_warn_kwargs = call
+        self.assertEqual(len(last_warn_args), 1)
+        self.assertEqual(len(last_warn_kwargs), 0)
+        self.assertRegexpMatches(
+            last_warn_args[0],
+            pattern,
+        )
+
+    @mock.patch('cassandra.timestamps.log')
+    def test_basic_log_content(self, patched_log):
+        self._call_and_check_results(
+            system_time_expected_stamp_pairs=(
+                (20.0, None),
+                (16.0, None))
+        )
+
+        self.assertEqual(len(patched_log.warn.call_args_list), 1)
+        self.assertLastCallArgsRegex(
+            patched_log.warn.call_args,
+            r'Clock skew detected:.*\b16000000\b.*\b4000000\b.*\b20000000\b')
