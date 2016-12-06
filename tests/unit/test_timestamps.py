@@ -17,6 +17,8 @@ try:
 except ImportError:
     import unittest  # noqa
 
+from time import sleep
+
 import mock
 
 from cassandra import timestamps
@@ -123,7 +125,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
         self.assertEqual(len(patched_log.warn.call_args_list), 0)
 
     @mock.patch('cassandra.timestamps.log')
-    def test_warning_threshold(self, patched_log):
+    def test_warning_threshold_respected_no_logging(self, patched_log):
         no_warn_tsg = timestamps.MonotonicTimestampGenerator(
             warning_threshold=2,
         )
@@ -134,3 +136,39 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
             timestamp_generator=no_warn_tsg
         )
         self.assertEqual(len(patched_log.warn.call_args_list), 0)
+
+    @mock.patch('cassandra.timestamps.log')
+    def test_warning_threshold_respected_logs(self, patched_log):
+        tsg = timestamps.MonotonicTimestampGenerator(
+            warning_threshold=2,
+        )
+        self._call_and_check_results(
+            system_time_expected_stamp_pairs=(
+                (100.0, None),
+                (97.0, None)),
+            timestamp_generator=tsg
+        )
+        self.assertEqual(len(patched_log.warn.call_args_list), 1)
+
+    @mock.patch('cassandra.timestamps.log')
+    def test_warning_interval(self, patched_log):
+        tsg = timestamps.MonotonicTimestampGenerator(
+            warning_interval=0.5
+        )
+        tsg.last = int(100.0 * 1e6)
+        self._call_and_check_results(
+            system_time_expected_stamp_pairs=(
+                (70.0, None),
+            ),
+            timestamp_generator=tsg
+        )
+        self.assertEqual(len(patched_log.warn.call_args_list), 1)
+
+        sleep(0.3)
+        self._call_and_check_results(
+            system_time_expected_stamp_pairs=(
+                (71.75, None),
+            ),
+            timestamp_generator=tsg
+        )
+        self.assertEqual(len(patched_log.warn.call_args_list), 1)
