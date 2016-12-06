@@ -29,26 +29,32 @@ class MonotonicTimestampGenerator(object):
     but, if the value returned by `time.time` doesn't increase, drifts into the
     future and logs warnings.
     """
-    def __init__(self):
+    def __init__(self, warn_on_drift=True):
         self.lock = Lock()
         with self.lock:
             self.last = 0
+        self.warn_on_drift = warn_on_drift
 
     def next_timestamp(self):
         with self.lock:
-            now = time.time() * 1e6
+            now = int(time.time() * 1e6)
             if now > self.last:
                 self.last = now
                 return now
             else:
-                log.warn(
-                    "Clock skew detected: current tick ({now}) was {diff} "
-                    "microseconds behind the last generated timestamp "
-                    "({last}), returned timestamps will be artificially "
-                    "incremented to guarantee monotonicity.".format(
-                        now=now, diff=(self.last - now), last=self.last))
+                self._maybe_warn(now=now, last=self.last)
                 self.last += 1
                 return self.last
 
     def __call__(self):
         return self.next_timestamp()
+
+    def _maybe_warn(self, now, last):
+        # should be called from inside the self.lock.
+        if self.warn_on_drift:
+            log.warn(
+                "Clock skew detected: current tick ({now}) was {diff} "
+                "microseconds behind the last generated timestamp "
+                "({last}), returned timestamps will be artificially "
+                "incremented to guarantee monotonicity.".format(
+                    now=now, diff=(last - now), last=last))
