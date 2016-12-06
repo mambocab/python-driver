@@ -26,14 +26,23 @@ class _TimestampTestMixin(object):
 
     @mock.patch('cassandra.timestamps.time')
     def _call_and_check_results(self, patched_time_module, system_time_expected_stamp_pairs):
+        """
+        For each element in an iterable of (system_time, expected_timestamp)
+        pairs, call a :class:`cassandra.timestamps.MonotonicTimestampGenerator`
+        with system_times as the underlying time.time() result, then assert
+        that the result is expected_timestamp. Skips the check if
+        expected_timestamp is None.
+        """
         patched_time_module.time = mock.Mock()
         system_times, expected_timestamps = zip(*system_time_expected_stamp_pairs)
 
         patched_time_module.time.side_effect = system_times
         tsg = timestamps.MonotonicTimestampGenerator()
 
-        for ts in expected_timestamps:
-            self.assertEqual(tsg(), ts)
+        for expected in expected_timestamps:
+            actual = tsg()
+            if expected is not None:
+                self.assertEqual(actual, expected)
 
         # assert we patched timestamps.time.time correctly
         with self.assertRaises(StopIteration):
