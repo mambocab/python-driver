@@ -22,7 +22,7 @@ import mock
 from cassandra import timestamps
 
 
-class TestTimestampGeneratorOutput(unittest.TestCase):
+class _TimestampTestMixin(object):
 
     @mock.patch('cassandra.timestamps.time')
     def _call_and_check_results(self, patched_time_module, system_time_expected_stamp_pairs):
@@ -38,6 +38,9 @@ class TestTimestampGeneratorOutput(unittest.TestCase):
         # assert we patched timestamps.time.time correctly
         with self.assertRaises(StopIteration):
             tsg()
+
+
+class TestTimestampGeneratorOutput(unittest.TestCase, _TimestampTestMixin):
 
     def test_timestamps_during_and_after_same_system_time(self):
         """
