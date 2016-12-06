@@ -86,7 +86,7 @@ class TestTimestampGeneratorOutput(unittest.TestCase, _TimestampTestMixin):
 
 class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
-    def assertLastCallArgsRegex(self, call, pattern):
+    def assertLastCallArgRegex(self, call, pattern):
         last_warn_args, last_warn_kwargs = call
         self.assertEqual(len(last_warn_args), 1)
         self.assertEqual(len(last_warn_kwargs), 0)
@@ -104,6 +104,6 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
         )
 
         self.assertEqual(len(patched_log.warn.call_args_list), 1)
-        self.assertLastCallArgsRegex(
+        self.assertLastCallArgRegex(
             patched_log.warn.call_args,
             r'Clock skew detected:.*\b16000000\b.*\b4000000\b.*\b20000000\b')
