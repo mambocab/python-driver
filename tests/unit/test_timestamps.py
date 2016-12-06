@@ -110,3 +110,14 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
         self.assertLastCallArgRegex(
             patched_log.warn.call_args,
             r'Clock skew detected:.*\b16000000\b.*\b4000000\b.*\b20000000\b')
+
+    @mock.patch('cassandra.timestamps.log')
+    def test_disable_logging(self, patched_log):
+        no_warn_tsg = timestamps.MonotonicTimestampGenerator(warn_on_drift=False)
+        self._call_and_check_results(
+            system_time_expected_stamp_pairs=(
+                (100.0, None),
+                (99.0, None)),
+            timestamp_generator=no_warn_tsg
+        )
+        self.assertEqual(len(patched_log.warn.call_args_list), 0)
