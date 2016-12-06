@@ -25,28 +25,31 @@ from cassandra import timestamps
 class TestMonotonicTimestampGenerator(unittest.TestCase):
 
     @mock.patch('cassandra.timestamps.time')
-    def test_timestamps_during_and_after_same_system_time(self, patched_time_module):
+    def _call_and_check_results(self, patched_time_module, system_times, expected_timestamps):
+        patched_time_module.time = mock.Mock()
+        patched_time_module.time.side_effect = system_times
+        tsg = timestamps.MonotonicTimestampGenerator()
+
+        for ts in expected_timestamps:
+            self.assertEqual(tsg(), ts)
+
+        # assert we patched timestamps.time.time correctly
+        with self.assertRaises(StopIteration):
+            tsg()
+
+    def test_timestamps_during_and_after_same_system_time(self):
         """
         Test that MonotonicTimestampGenerator's output increases by 1 when the
         underlying system time is the same, then returns to normal when the
         system time changes again.
         """
-        patched_time_module.time = mock.Mock()
-        patched_time_module.time.side_effect = [15.0, 15.0, 15.0, 15.01]
-        tsg = timestamps.MonotonicTimestampGenerator()
-
-        # when the underlying system time stays the same, the timestamp
-        # increments
-        self.assertEqual(tsg(), 15 * 1e6)
-        self.assertEqual(tsg(), 15 * 1e6 + 1)
-        self.assertEqual(tsg(), 15 * 1e6 + 2)
-        # when the underlying system time increases again, the timestamp
-        # changes to reflect that
-        self.assertEqual(tsg(), 15.01 * 1e6)
-
-        # assert we patched timestamps.time.time correctly
-        with self.assertRaises(StopIteration):
-            tsg()
+        self._call_and_check_results(
+            system_times=(15.0, 15.0, 15.0, 15.01),
+            expected_timestamps=(15 * 1e6,
+                                 15 * 1e6 + 1,
+                                 15 * 1e6 + 2,
+                                 15.01 * 1e6)
+        )
 
     @mock.patch('cassandra.timestamps.time')
     def test_timestamps_during_and_after_backwards_system_time(self, patched_time_module):
@@ -55,19 +58,11 @@ class TestMonotonicTimestampGenerator(unittest.TestCase):
         underlying system time goes backward, then returns to normal when the
         system time increases again.
         """
-        patched_time_module.time = mock.Mock()
-        patched_time_module.time.side_effect = [15.0, 13.0, 14.0, 15.01]
-        tsg = timestamps.MonotonicTimestampGenerator()
-
-        # when the underlying system time stays the same, the timestamp
-        # increments
-        self.assertEqual(tsg(), 15 * 1e6)
-        self.assertEqual(tsg(), 15 * 1e6 + 1)
-        self.assertEqual(tsg(), 15 * 1e6 + 2)
-        # when the underlying system time increases again, the timestamp
-        # changes to reflect that
-        self.assertEqual(tsg(), 15.01 * 1e6)
-
-        # assert we patched timestamps.time.time correctly
-        with self.assertRaises(StopIteration):
-            tsg()
+        self._call_and_check_results(
+            system_times=(15.0, 13.0, 14.0, 13.5, 15.01),
+            expected_timestamps=(15 * 1e6,
+                                 15 * 1e6 + 1,
+                                 15 * 1e6 + 2,
+                                 15 * 1e6 + 3,
+                                 15.01 * 1e6)
+        )
