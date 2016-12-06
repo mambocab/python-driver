@@ -121,3 +121,16 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
             timestamp_generator=no_warn_tsg
         )
         self.assertEqual(len(patched_log.warn.call_args_list), 0)
+
+    @mock.patch('cassandra.timestamps.log')
+    def test_warning_threshold(self, patched_log):
+        no_warn_tsg = timestamps.MonotonicTimestampGenerator(
+            warning_threshold=2,
+        )
+        self._call_and_check_results(
+            system_time_expected_stamp_pairs=(
+                (100.0, None),
+                (99.0, None)),
+            timestamp_generator=no_warn_tsg
+        )
+        self.assertEqual(len(patched_log.warn.call_args_list), 0)
