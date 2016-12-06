@@ -25,7 +25,10 @@ from cassandra import timestamps
 class _TimestampTestMixin(object):
 
     @mock.patch('cassandra.timestamps.time')
-    def _call_and_check_results(self, patched_time_module, system_time_expected_stamp_pairs):
+    def _call_and_check_results(self,
+                                patched_time_module,
+                                system_time_expected_stamp_pairs,
+                                timestamp_generator=None):
         """
         For each element in an iterable of (system_time, expected_timestamp)
         pairs, call a :class:`cassandra.timestamps.MonotonicTimestampGenerator`
@@ -37,7 +40,7 @@ class _TimestampTestMixin(object):
         system_times, expected_timestamps = zip(*system_time_expected_stamp_pairs)
 
         patched_time_module.time.side_effect = system_times
-        tsg = timestamps.MonotonicTimestampGenerator()
+        tsg = timestamp_generator or timestamps.MonotonicTimestampGenerator()
 
         for expected in expected_timestamps:
             actual = tsg()
