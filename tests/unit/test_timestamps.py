@@ -22,7 +22,7 @@ import mock
 from cassandra import timestamps
 
 
-class TestMonotonicTimestampGenerator(unittest.TestCase):
+class TestTimestampGeneratorOutput(unittest.TestCase):
 
     @mock.patch('cassandra.timestamps.time')
     def _call_and_check_results(self, patched_time_module, system_time_expected_stamp_pairs):
