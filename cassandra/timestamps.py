@@ -25,9 +25,9 @@ log = logging.getLogger(__name__)
 
 class MonotonicTimestampGenerator(object):
     """
-    An object that, when called, returns `time.time() * 1e6` when possible,
-    but, if the value returned by `time.time` doesn't increase, drifts into the
-    future and logs warnings.
+    An object that, when called, returns `int(time.time() * 1e6)` when
+    possible, but, if the value returned by `time.time` doesn't increase,
+    drifts into the future and logs warnings.
     """
     def __init__(self, warn_on_drift=True, warning_threshold=0, warning_interval=0):
         self.lock = Lock()
