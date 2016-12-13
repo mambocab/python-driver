@@ -1903,20 +1903,20 @@ class Session(object):
 
     timestamp_generator = None
     """
-    When :attr:`.Cluster.use_client_timestamp` is set, sessions call this
-    object and use the result as the timestamp.  (Note that timestamps specified
-    within a CQL query will override this timestamp.)  By default, a new
-    :attr:`cassandra.timestamps.MonotonicTimestampGenerator` is created for
-    each :attr:`.Cluster` instance.
+    When :attr:`use_client_timestamp` is set, sessions call this object and use
+    the result as the timestamp.  (Note that timestamps specified within a CQL
+    query will override this timestamp.)  By default, a new
+    :class:`~.MonotonicTimestampGenerator` is created for
+    each :class:`Cluster` instance.
 
     Applications can set this value for custom timestamp behavior.  For
     example, an application could share a timestamp generator across
-    :attr:`.Cluster` objects to guarantee unique, increasing timestamps across
-    clusters, or set it to to `lambda: time.time() * 1e6` if losing records
-    over clock inconsistencies is acceptable for the application.  Custom
-    :attr:`.Cluster.timestamp_generator` objects should be callable and should
-    return the timestamp as a integer representing seconds since some point in
-    time, typically UNIX epoch.
+    :class:`Cluster` objects to guarantee that the application will use unique,
+    increasing timestamps across clusters, or set it to to ``lambda:
+    int(time.time() * 1e6)`` if losing records over clock inconsistencies is
+    acceptable for the application. Custom :attr:`timestamp_generator` s should
+    be callable, and calling them should return an integer representing seconds
+    since some point in time, typically UNIX epoch.
 
     .. versionadded:: 3.8.0
     """
