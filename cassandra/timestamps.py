@@ -55,10 +55,10 @@ class MonotonicTimestampGenerator(object):
         self.lock = Lock()
         with self.lock:
             self.last = 0
+            self._last_warn = 0
         self.warn_on_drift = warn_on_drift
         self.warning_threshold = warning_threshold
         self.warning_interval = warning_interval
-        self._last_warn = 0
 
     def _next_timestamp(self, now, last):
         """
@@ -72,18 +72,22 @@ class MonotonicTimestampGenerator(object):
         :param int last: an integer representing the last timestamp returned by
             this object
         """
-        with self.lock:
-            if now > last:
-                self.last = now
-                return now
-            else:
-                self._maybe_warn(now=now)
-                self.last = last + 1
-                return self.last
+        if now > last:
+            self.last = now
+            return now
+        else:
+            self._maybe_warn(now=now)
+            self.last = last + 1
+            return self.last
 
     def __call__(self):
-        return self._next_timestamp(now=int(time.time() * 1e6),
-                                    last=self.last)
+        """
+        Makes ``MonotonicTimestampGenerator`` objects callable; defers
+        internally to _next_timestamp.
+        """
+        with self.lock:
+            return self._next_timestamp(now=int(time.time() * 1e6),
+                                        last=self.last)
 
     def _maybe_warn(self, now):
         # should be called from inside the self.lock.
