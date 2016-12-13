@@ -11,6 +11,4 @@
 
     .. autoattribute:: warning_interval
 
-    .. autoattribute:: _next_timestamp
-
-    .. autoattribute:: __call__
+    .. automethod:: _next_timestamp
