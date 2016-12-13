@@ -70,6 +70,7 @@ from cassandra.pool import (Host, _ReconnectionHandler, _HostReconnectionHandler
 from cassandra.query import (SimpleStatement, PreparedStatement, BoundStatement,
                              BatchStatement, bind_params, QueryTrace,
                              named_tuple_factory, dict_factory, tuple_factory, FETCH_SIZE_UNSET)
+from cassandra.timestamps import MonotonicTimestampGenerator
 
 
 def _is_eventlet_monkey_patched():
