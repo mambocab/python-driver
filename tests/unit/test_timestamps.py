@@ -94,6 +94,11 @@ class TestTimestampGeneratorOutput(unittest.TestCase, _TimestampTestMixin):
 
 class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
+    def setUp(self):
+        self.log_patcher = mock.patch('cassandra.timestamps.log')
+        self.addCleanup(self.log_patcher.stop)
+        self.patched_timestamp_log = self.log_patcher.start()
+
     def assertLastCallArgRegex(self, call, pattern):
         last_warn_args, last_warn_kwargs = call
         self.assertEqual(len(last_warn_args), 1)
@@ -103,59 +108,54 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
             pattern,
         )
 
-    @mock.patch('cassandra.timestamps.log')
-    def test_basic_log_content(self, patched_log):
+    def test_basic_log_content(self):
         tsg = timestamps.MonotonicTimestampGenerator()
         tsg._last_warn = 12
 
         tsg._next_timestamp(20, tsg.last)
         tsg._next_timestamp(16, tsg.last)
 
-        self.assertEqual(len(patched_log.warn.call_args_list), 1)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
         self.assertLastCallArgRegex(
-            patched_log.warn.call_args,
+            self.patched_timestamp_log.warn.call_args,
             r'Clock skew detected:.*\b16\b.*\b4\b.*\b20\b'
         )
 
-    @mock.patch('cassandra.timestamps.log')
-    def test_disable_logging(self, patched_log):
+    def test_disable_logging(self):
         no_warn_tsg = timestamps.MonotonicTimestampGenerator(warn_on_drift=False)
         no_warn_tsg._last_warn = 90
 
         no_warn_tsg._next_timestamp(100, no_warn_tsg.last)
         no_warn_tsg._next_timestamp(99, no_warn_tsg.last)
-        self.assertEqual(len(patched_log.warn.call_args_list), 0)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
 
-    @mock.patch('cassandra.timestamps.log')
-    def test_warning_threshold_respected_no_logging(self, patched_log):
+    def test_warning_threshold_respected_no_logging(self):
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_threshold=2,
         )
         tsg._last_warn = 97
         tsg._next_timestamp(100, tsg.last)
         tsg._next_timestamp(98, tsg.last)
-        self.assertEqual(len(patched_log.warn.call_args_list), 0)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
 
-    @mock.patch('cassandra.timestamps.log')
-    def test_warning_threshold_respected_logs(self, patched_log):
+    def test_warning_threshold_respected_logs(self):
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_threshold=1
         )
         tsg._last_warn = 95
         tsg._next_timestamp(100, tsg.last)
-        self.assertEqual(len(patched_log.warn.call_args_list), 0)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
 
         tsg._next_timestamp(97, tsg.last)
-        self.assertEqual(len(patched_log.warn.call_args_list), 1)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
 
-    @mock.patch('cassandra.timestamps.log')
-    def test_warning_interval_respected_no_logging(self, patched_log):
+    def test_warning_interval_respected_no_logging(self):
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_interval=2
         )
         tsg.last = 100
         tsg._next_timestamp(70, tsg.last)
-        self.assertEqual(len(patched_log.warn.call_args_list), 1)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
 
         tsg._next_timestamp(71, tsg.last)
-        self.assertEqual(len(patched_log.warn.call_args_list), 1)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
