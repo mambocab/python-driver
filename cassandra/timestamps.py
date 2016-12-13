@@ -40,31 +40,43 @@ class MonotonicTimestampGenerator(object):
         self.warning_interval = warning_interval
         self._last_warn = 0
 
-    def next_timestamp(self):
+    def _next_timestamp(self, now, last):
+        """
+        A function designed for testability, not for external use. Returns the
+        timestamp that should be used if ``now`` is the current time and
+        ``last`` is the last timestamp returned by this object.
+
+        :param int now: an integer to be used as the current time, typically
+            representing the current time in seconds since the UNIX epoch
+        :param int last: an integer representing the last timestamp returned by
+            this object
+        """
         with self.lock:
-            now = int(time.time() * 1e6)
-            if now > self.last:
+            if now > last:
                 self.last = now
                 return now
             else:
-                self._maybe_warn(now=now, last=self.last)
-                self.last += 1
+                self._maybe_warn(now=now)
+                self.last = last + 1
                 return self.last
 
     def __call__(self):
-        return self.next_timestamp()
+        return self._next_timestamp(now=int(time.time() * 1e6),
+                                    last=self.last)
 
-    def _maybe_warn(self, now, last):
+    def _maybe_warn(self, now):
         # should be called from inside the self.lock.
-        diff = last - now
+        diff = now - self._last_warn
+        since_last_warn = now - self._last_warn
+
         warn = (self.warn_on_drift and
-                (diff > self.warning_threshold * 1e6) and
-                self._last_warn - now > self.warning_interval)
+                (diff >= self.warning_threshold) and
+                (since_last_warn >= self.warning_interval))
         if warn:
             log.warn(
                 "Clock skew detected: current tick ({now}) was {diff} "
                 "microseconds behind the last generated timestamp "
                 "({last}), returned timestamps will be artificially "
                 "incremented to guarantee monotonicity.".format(
-                    now=now, diff=diff, last=last))
+                    now=now, diff=diff, last=self.last))
             self._last_warn = now
