@@ -113,6 +113,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
         tsg._last_warn = 12
 
         tsg._next_timestamp(20, tsg.last)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
         tsg._next_timestamp(16, tsg.last)
 
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
@@ -123,9 +124,8 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
     def test_disable_logging(self):
         no_warn_tsg = timestamps.MonotonicTimestampGenerator(warn_on_drift=False)
-        no_warn_tsg._last_warn = 90
 
-        no_warn_tsg._next_timestamp(100, no_warn_tsg.last)
+        no_warn_tsg.last = 100
         no_warn_tsg._next_timestamp(99, no_warn_tsg.last)
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
 
@@ -133,8 +133,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_threshold=2,
         )
-        tsg._last_warn = 97
-        tsg._next_timestamp(100, tsg.last)
+        tsg.last, tsg._last_warn = 100, 97
         tsg._next_timestamp(98, tsg.last)
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
 
@@ -142,11 +141,8 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_threshold=1
         )
-        tsg._last_warn = 95
-        tsg._next_timestamp(100, tsg.last)
-        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
-
-        tsg._next_timestamp(97, tsg.last)
+        tsg.last, tsg._last_warn = 100, 97
+        tsg._next_timestamp(98, tsg.last)
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
 
     def test_warning_interval_respected_no_logging(self):
@@ -159,3 +155,14 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
         tsg._next_timestamp(71, tsg.last)
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
+
+    def test_warning_interval_respected_logs(self):
+        tsg = timestamps.MonotonicTimestampGenerator(
+            warning_interval=1
+        )
+        tsg.last = 100
+        tsg._next_timestamp(70, tsg.last)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
+
+        tsg._next_timestamp(72, tsg.last)
+        self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 2)
