@@ -1953,7 +1953,7 @@ class Session(object):
         :attr:`~.Session.default_timeout`.  If set to :const:`None`, there is
         no timeout. Please see :meth:`.ResponseFuture.result` for details on
         the scope and effect of this timeout.
-
+2
         If `trace` is set to :const:`True`, the query will be sent with tracing enabled.
         The trace details can be obtained using the returned :class:`.ResultSet` object.
 
@@ -1967,7 +1967,9 @@ class Session(object):
 
         `paging_state` is an optional paging state, reused from a previous :class:`ResultSet`.
         """
-        return self.execute_async(query, parameters, trace, custom_payload, timeout, execution_profile, paging_state).result()
+        f = self.execute_async(query, parameters, trace, custom_payload, timeout, execution_profile, paging_state)
+        r = f.result()
+        return r
 
     def execute_async(self, query, parameters=None, trace=False, custom_payload=None, timeout=_NOT_SET, execution_profile=EXEC_PROFILE_DEFAULT, paging_state=None):
         """
@@ -3255,8 +3257,13 @@ class ResponseFuture(object):
 
     _warned_timeout = False
 
+    def _log(self, message):
+        self._activty_log.append((time.time(), message))
+
     def __init__(self, session, message, query, timeout, metrics=None, prepared_statement=None,
                  retry_policy=RetryPolicy(), row_factory=None, load_balancer=None, start_time=None, speculative_execution_plan=None):
+        self._activty_log = []
+        self._log('__init__')
         self.session = session
         # TODO: normalize handling of retry policy and row factory
         self.row_factory = row_factory or session.row_factory
@@ -3279,6 +3286,9 @@ class ResponseFuture(object):
         self.attempted_hosts = []
 
     def _start_timer(self):
+        import traceback
+        self._log('_start_timer\n' + 
+                  '\n'.join([line.strip() for line in traceback.format_stack()]))
         if self._timer is None:
             spec_delay = self._spec_execution_plan.next_execution(self._current_host)
             if spec_delay >= 0:
@@ -3289,6 +3299,7 @@ class ResponseFuture(object):
                 self._timer = self.session.cluster.connection_class.create_timer(self._time_remaining, self._on_timeout)
 
     def _cancel_timer(self):
+        self._log('_cancel_timer')
         if self._timer:
             self._timer.cancel()
 
@@ -3305,6 +3316,7 @@ class ResponseFuture(object):
         self._set_final_exception(OperationTimedOut(errors, self._current_host))
 
     def _on_speculative_execute(self):
+        self._log('_on_speculative_execute')
         self._timer = None
         if not self._event.is_set():
             if self._time_remaining is not None:
@@ -3314,6 +3326,7 @@ class ResponseFuture(object):
                     self._on_timeout()
                     return
             if not self.send_request(error_no_hosts=False):
+                self._log('_on_speculative_execute: starting timer')
                 self._start_timer()
 
 
@@ -3335,6 +3348,7 @@ class ResponseFuture(object):
                 # timer is only started here, after we have at least one message queued
                 # this is done to avoid overrun of timers with unfettered client requests
                 # in the case of full disconnect, where no hosts will be available
+                self._log('send_request: starting timer')
                 self._start_timer()
                 return True
             if self.timeout is not None and time.time() - self._start_time > self.timeout:
@@ -3670,6 +3684,7 @@ class ResponseFuture(object):
                 "statement on host %s: %s" % (host, response)))
 
     def _set_final_result(self, response):
+        self._log('_set_final_result')
         self._cancel_timer()
         if self._metrics is not None:
             self._metrics.request_timer.addValue(time.time() - self._start_time)
@@ -3685,6 +3700,7 @@ class ResponseFuture(object):
             fn(response, *args, **kwargs)
 
     def _set_final_exception(self, response):
+        self._log('_set_final_exception')
         self._cancel_timer()
         if self._metrics is not None:
             self._metrics.request_timer.addValue(time.time() - self._start_time)
@@ -3749,6 +3765,8 @@ class ResponseFuture(object):
 
         """
         self._event.wait()
+        if not self._timer.finish(time.time()):
+            log.debug(self._activty_log)
         if self._final_result is not _NOT_SET:
             return ResultSet(self, self._final_result)
         else:

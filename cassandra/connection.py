@@ -1070,6 +1070,7 @@ class TimerManager(object):
         Called from the event thread
         :return: next end time, or None
         """
+        # log.debug('servicing timeouts')
         queue = self._queue
         if self._new_timers:
             new_timers = self._new_timers
@@ -1077,7 +1078,12 @@ class TimerManager(object):
                 heappush(queue, new_timers.pop())
 
         if queue:
+            # log.debug('servicing queue with len ' + str(len(queue)))
             now = time.time()
+            # if not queue[0][1].finish(now):
+            #     log.debug('first queue element not finished; queue will not shrink')
+            #     log.debug(queue[0][1])
+            #     log.debug(queue[0][1].callback)
             while queue:
                 try:
                     timer = queue[0][1]
@@ -1087,6 +1093,8 @@ class TimerManager(object):
                         return timer.end
                 except Exception:
                     log.exception("Exception while servicing timeout callback: ")
+        # else:
+        #     log.debug('queue is empty, no servicing')
 
     @property
     def next_timeout(self):
