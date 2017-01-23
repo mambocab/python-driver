@@ -20,7 +20,8 @@ except ImportError:
 import mock
 
 from cassandra import timestamps
-
+import time
+from threading import Thread, Lock
 
 class _TimestampTestMixin(object):
 
@@ -92,7 +93,7 @@ class TestTimestampGeneratorOutput(unittest.TestCase, _TimestampTestMixin):
         )
 
 
-class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
+class TestTimestampGeneratorLogging(unittest.TestCase):
 
     def setUp(self):
         self.log_patcher = mock.patch('cassandra.timestamps.log')
@@ -110,6 +111,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
     def test_basic_log_content(self):
         tsg = timestamps.MonotonicTimestampGenerator()
+        #The units of _last_warn is seconds
         tsg._last_warn = 12
 
         tsg._next_timestamp(20, tsg.last)
@@ -131,7 +133,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
     def test_warning_threshold_respected_no_logging(self):
         tsg = timestamps.MonotonicTimestampGenerator(
-            warning_threshold=2,
+            warning_threshold=2e-6,
         )
         tsg.last, tsg._last_warn = 100, 97
         tsg._next_timestamp(98, tsg.last)
@@ -139,7 +141,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
     def test_warning_threshold_respected_logs(self):
         tsg = timestamps.MonotonicTimestampGenerator(
-            warning_threshold=1
+            warning_threshold=1e-6
         )
         tsg.last, tsg._last_warn = 100, 97
         tsg._next_timestamp(98, tsg.last)
@@ -147,7 +149,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
     def test_warning_interval_respected_no_logging(self):
         tsg = timestamps.MonotonicTimestampGenerator(
-            warning_interval=2
+            warning_interval=2e-6
         )
         tsg.last = 100
         tsg._next_timestamp(70, tsg.last)
@@ -158,7 +160,7 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
     def test_warning_interval_respected_logs(self):
         tsg = timestamps.MonotonicTimestampGenerator(
-            warning_interval=1
+            warning_interval=1e-6
         )
         tsg.last = 100
         tsg._next_timestamp(70, tsg.last)
@@ -166,3 +168,40 @@ class TestTimestampGeneratorLogging(unittest.TestCase, _TimestampTestMixin):
 
         tsg._next_timestamp(72, tsg.last)
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 2)
+
+
+class TestTimestampGeneratorMultipleThreads(unittest.TestCase):
+    def test_should_generate_incrementing_timestamps_for_all_threads(self):
+
+        lock = Lock()
+
+        def request_time():
+            for _ in range(timestamp_to_generate):
+                timestamp = tsg()
+                with lock:
+                    generated_timestamps.append(timestamp)
+
+        tsg = timestamps.MonotonicTimestampGenerator(warning_threshold=1)
+        fixed_time = 1
+        num_threads = 5
+
+        timestamp_to_generate = 1000
+        generated_timestamps = []
+
+        time.time = mock.Mock(return_value=fixed_time)
+
+        threads = []
+        for _ in range(num_threads):
+            threads.append(Thread(target=request_time))
+
+        for t in threads:
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        self.assertEqual(len(generated_timestamps), num_threads * timestamp_to_generate)
+        for i, timestamp in enumerate(sorted(generated_timestamps)):
+            self.assertEqual(int(i + 1e6), timestamp)
+
+
