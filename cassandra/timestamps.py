@@ -91,7 +91,7 @@ class MonotonicTimestampGenerator(object):
 
     def _maybe_warn(self, now):
         # should be called from inside the self.lock.
-        diff = now - self._last_warn
+        diff = self.last - now
         since_last_warn = now - self._last_warn
 
         warn = (self.warn_on_drift and
