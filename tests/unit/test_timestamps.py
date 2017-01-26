@@ -61,11 +61,13 @@ class TestTimestampGeneratorOutput(unittest.TestCase, _TimestampTestMixin):
 
     def test_timestamps_during_and_after_same_system_time(self):
         """
-        Timestamps should increase monotonically over repeated system time.
-
         Test that MonotonicTimestampGenerator's output increases by 1 when the
         underlying system time is the same, then returns to normal when the
         system time increases again.
+
+        @since 3.8.0
+        @expected_result Timestamps should increase monotonically over repeated system time.
+        @test_category timing
         """
         self._call_and_check_results(
             system_time_expected_stamp_pairs=(
@@ -77,11 +79,13 @@ class TestTimestampGeneratorOutput(unittest.TestCase, _TimestampTestMixin):
 
     def test_timestamps_during_and_after_backwards_system_time(self):
         """
-        Timestamps should increase monotonically over system time going backwards.
-
         Test that MonotonicTimestampGenerator's output increases by 1 when the
         underlying system time goes backward, then returns to normal when the
         system time increases again.
+
+        @since 3.8.0
+        @expected_result Timestamps should increase monotonically over system time going backwards.
+        @test_category timing
         """
         self._call_and_check_results(
             system_time_expected_stamp_pairs=(
@@ -110,6 +114,15 @@ class TestTimestampGeneratorLogging(unittest.TestCase):
         )
 
     def test_basic_log_content(self):
+        """
+        Tests there are logs
+
+        @since 3.8.0
+        @jira_ticket PYTHON-676
+        @expected_result logs
+
+        @test_category timing
+        """
         tsg = timestamps.MonotonicTimestampGenerator()
         #The units of _last_warn is seconds
         tsg._last_warn = 12
@@ -125,6 +138,15 @@ class TestTimestampGeneratorLogging(unittest.TestCase):
         )
 
     def test_disable_logging(self):
+        """
+        Tests there are no logs when there is a clock skew if logging is disabled
+
+        @since 3.8.0
+        @jira_ticket PYTHON-676
+        @expected_result no logs
+
+        @test_category timing
+        """
         no_warn_tsg = timestamps.MonotonicTimestampGenerator(warn_on_drift=False)
 
         no_warn_tsg.last = 100
@@ -132,6 +154,15 @@ class TestTimestampGeneratorLogging(unittest.TestCase):
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
 
     def test_warning_threshold_respected_no_logging(self):
+        """
+        Tests there are no logs if `warning_threshold` is not exceeded
+
+        @since 3.8.0
+        @jira_ticket PYTHON-676
+        @expected_result no logs
+
+        @test_category timing
+        """
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_threshold=2e-6,
         )
@@ -140,6 +171,15 @@ class TestTimestampGeneratorLogging(unittest.TestCase):
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 0)
 
     def test_warning_threshold_respected_logs(self):
+        """
+        Tests there are logs if `warning_threshold` is exceeded
+
+        @since 3.8.0
+        @jira_ticket PYTHON-676
+        @expected_result logs
+
+        @test_category timing
+        """
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_threshold=1e-6
         )
@@ -148,6 +188,15 @@ class TestTimestampGeneratorLogging(unittest.TestCase):
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
 
     def test_warning_interval_respected_no_logging(self):
+        """
+        Tests there is only one log in the interval `warning_interval`
+
+        @since 3.8.0
+        @jira_ticket PYTHON-676
+        @expected_result one log
+
+        @test_category timing
+        """
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_interval=2e-6
         )
@@ -159,6 +208,16 @@ class TestTimestampGeneratorLogging(unittest.TestCase):
         self.assertEqual(len(self.patched_timestamp_log.warn.call_args_list), 1)
 
     def test_warning_interval_respected_logs(self):
+        """
+        Tests there are logs again if the
+        clock skew happens after`warning_interval`
+
+        @since 3.8.0
+        @jira_ticket PYTHON-676
+        @expected_result logs
+
+        @test_category timing
+        """
         tsg = timestamps.MonotonicTimestampGenerator(
             warning_interval=1e-6
         )
@@ -171,8 +230,17 @@ class TestTimestampGeneratorLogging(unittest.TestCase):
 
 
 class TestTimestampGeneratorMultipleThreads(unittest.TestCase):
-    def test_should_generate_incrementing_timestamps_for_all_threads(self):
 
+    def test_should_generate_incrementing_timestamps_for_all_threads(self):
+        """
+        Tests when time is "stopped", values are assigned incrementally
+
+        @since 3.8.0
+        @jira_ticket PYTHON-676
+        @expected_result the returned values increase
+
+        @test_category timing
+        """
         lock = Lock()
 
         def request_time():
