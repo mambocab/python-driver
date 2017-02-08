@@ -256,20 +256,17 @@ class TestTimestampGeneratorMultipleThreads(unittest.TestCase):
         timestamp_to_generate = 1000
         generated_timestamps = []
 
-        time.time = mock.Mock(return_value=fixed_time)
+        with mock.patch('time.time', new=mock.Mock(return_value=fixed_time)):
+            threads = []
+            for _ in range(num_threads):
+                threads.append(Thread(target=request_time))
 
-        threads = []
-        for _ in range(num_threads):
-            threads.append(Thread(target=request_time))
+            for t in threads:
+                t.start()
 
-        for t in threads:
-            t.start()
+            for t in threads:
+                t.join()
 
-        for t in threads:
-            t.join()
-
-        self.assertEqual(len(generated_timestamps), num_threads * timestamp_to_generate)
-        for i, timestamp in enumerate(sorted(generated_timestamps)):
-            self.assertEqual(int(i + 1e6), timestamp)
-
-
+            self.assertEqual(len(generated_timestamps), num_threads * timestamp_to_generate)
+            for i, timestamp in enumerate(sorted(generated_timestamps)):
+                self.assertEqual(int(i + 1e6), timestamp)
