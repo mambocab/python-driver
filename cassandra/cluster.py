@@ -3324,7 +3324,7 @@ class ResponseFuture(object):
         self._metrics = metrics
         self.prepared_statement = prepared_statement
         self._callback_lock = Lock()
-        self._start_time = start_time or time.time()
+        self._start_time = self._last_time_remaining_update_time = start_time or time.time()
         self._make_query_plan()
         self._event = Event()
         self._errors = {}
@@ -3364,8 +3364,11 @@ class ResponseFuture(object):
         self._timer = None
         if not self._event.is_set():
             if self._time_remaining is not None:
-                elapsed = time.time() - self._start_time
-                self._time_remaining -= elapsed
+                now = time.time()
+                elapsed = now - self._last_time_remaining_update_time
+                self._time_remaining, self._last_time_remaining_update_time = (
+                    self._time_remaining - elapsed, now
+                )
                 if self._time_remaining <= 0:
                     self._on_timeout()
                     return
