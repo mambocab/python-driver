@@ -20,6 +20,10 @@ Other
 * Bump Cython dependency version to 0.25.2 (PYTHON-754)
 * Fix DeprecationWarning when using lz4 (PYTHON-769)
 
+Other
+-----
+* Deprecate WhiteListRoundRobinPolicy (PYTHON-759)
+
 3.10.0
 ======
 May 24, 2017
