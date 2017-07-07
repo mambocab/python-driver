@@ -474,7 +474,7 @@ class HostFilterPolicy(LoadBalancingPolicy):
     .. code-block:: python
 
         def address_is_ignored(host):
-            return host.address not in [ignored_address0, ignored_address1]
+            return host.address in [ignored_address0, ignored_address1]
 
         blacklist_filter_policy = HostFilterPolicy(
             child_policy=RoundRobinPolicy(),
