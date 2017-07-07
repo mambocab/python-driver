@@ -492,8 +492,6 @@ class HostFilterPolicy(LoadBalancingPolicy):
     fallbacks, over a brute-force method like whitelisting or blacklisting.
     """
 
-    _predicate = None
-
     def __init__(self, child_policy, predicate):
         """
         :param child_policy: an instantiated :class:`.LoadBalancingPolicy`
@@ -504,25 +502,7 @@ class HostFilterPolicy(LoadBalancingPolicy):
         """
         super(HostFilterPolicy, self).__init__()
         self._child_policy = child_policy
-
-        # if the user passes a lambda, wraps(predicate) will fail without a
-        # __name__
-        if not hasattr(predicate, '__name__'):
-            predicate.__name__ = ''
-
-        @wraps(predicate)
-        def predicate_with_better_error_handling(*args, **kwargs):
-            try:
-                return predicate(*args, **kwargs)
-            except TypeError as te:
-                msg = (
-                    'caught the following error while calling ' +
-                    self.__class__.__name__ + " object's predicate method: " +
-                    repr(te.message)
-                )
-                raise TypeError(msg)
-
-        self._predicate = predicate_with_better_error_handling
+        self._predicate = predicate
 
     def on_up(self, host, *args, **kwargs):
         if self.predicate(host):
