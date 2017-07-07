@@ -559,9 +559,12 @@ class HostFilterPolicy(LoadBalancingPolicy):
         policy, the child policy will only ever return policies for which
         :meth:`.predicate(host)` was truthy when that change occurred.
         """
-        return self._child_policy.make_query_plan(
+        child_qp = self._child_policy.make_query_plan(
             working_keyspace=working_keyspace, query=query
         )
+        for host in child_qp:
+            if self.predicate(host):
+                yield host
 
     def check_supported(self):
         return self._child_policy.check_supported()

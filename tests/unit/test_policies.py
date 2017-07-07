@@ -1403,14 +1403,20 @@ class HostFilterPolicyPopulateTest(unittest.TestCase):
 class HostFilterPolicyQueryPlanTest(unittest.TestCase):
 
     def test_query_plan_deferred_to_child(self):
+        child_policy = Mock(
+            name='child_policy',
+            make_query_plan=Mock(
+                return_value=[object(), object(), object()]
+            )
+        )
         hfp = HostFilterPolicy(
-            child_policy=Mock(name='child_policy'),
+            child_policy=child_policy,
             predicate=lambda host: True
         )
         working_keyspace, query = (Mock(name='working_keyspace'),
                                    Mock(name='query'))
-        qp = hfp.make_query_plan(working_keyspace=working_keyspace,
-                                 query=query)
+        qp = list(hfp.make_query_plan(working_keyspace=working_keyspace,
+                                      query=query))
         hfp._child_policy.make_query_plan.assert_called_once_with(
             working_keyspace=working_keyspace,
             query=query
