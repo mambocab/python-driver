@@ -369,7 +369,7 @@ class Cluster(object):
 
     """
 
-    allow_beta_protocol_version = False
+    allow_beta_protocol_version = True
     """
     Setting true injects a flag in all messages that makes the server accept and use "beta" protocol version.
     Used for testing new protocol features incrementally before the new version is complete.
@@ -761,7 +761,7 @@ class Cluster(object):
                  prepare_on_all_hosts=True,
                  reprepare_on_up=True,
                  execution_profiles=None,
-                 allow_beta_protocol_version=False,
+                 allow_beta_protocol_version=True,
                  timestamp_generator=None,
                  idle_heartbeat_timeout=30):
         """
@@ -2136,7 +2136,8 @@ class Session(object):
             message = ExecuteMessage(
                 prepared_statement.query_id, query.values, cl,
                 serial_cl, fetch_size,
-                timestamp=timestamp, skip_meta=bool(prepared_statement.result_metadata))
+                timestamp=timestamp, skip_meta=bool(prepared_statement.result_metadata),
+                result_metadata_id=prepared_statement.result_metadata_id)
         elif isinstance(query, BatchStatement):
             if self._protocol_version < 2:
                 raise UnsupportedOperation(
@@ -2247,14 +2248,16 @@ class Session(object):
         future = ResponseFuture(self, message, query=None, timeout=self.default_timeout)
         try:
             future.send_request()
-            query_id, bind_metadata, pk_indexes, result_metadata = future.result()
+            query_id, bind_metadata, pk_indexes, result_metadata, result_metadata_id = future.result()
+            assert result_metadata_id is not None
+            # print 'got response'
         except Exception:
             log.exception("Error preparing query:")
             raise
 
         prepared_statement = PreparedStatement.from_message(
             query_id, bind_metadata, pk_indexes, self.cluster.metadata, query, self.keyspace,
-            self._protocol_version, result_metadata)
+            self._protocol_version, result_metadata, result_metadata_id)
         prepared_statement.custom_payload = future.custom_payload
 
         self.cluster.add_prepared(query_id, prepared_statement)
