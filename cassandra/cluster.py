@@ -2249,7 +2249,8 @@ class Session(object):
         try:
             future.send_request()
             query_id, bind_metadata, pk_indexes, result_metadata, result_metadata_id = future.result()
-            assert result_metadata_id is not None
+            # print result_metadata_id
+            # assert result_metadata_id is not None
             # print 'got response'
         except Exception:
             log.exception("Error preparing query:")
@@ -3742,8 +3743,11 @@ class ResponseFuture(object):
                 if self.prepared_statement:
                     # result metadata is the only thing that could have
                     # changed from an alter
-                    _, _, _, result_metadata = response.results
-                    self.prepared_statement.result_metadata = result_metadata
+                    (_, _, _,
+                     self.prepared_statement.result_metadata,
+                     new_metadata_id) = response.results
+                    if new_metadata_id is not None:
+                        self.prepared_statement.result_metadata_id = new_metadata_id
 
                 # use self._query to re-use the same host and
                 # at the same time properly borrow the connection

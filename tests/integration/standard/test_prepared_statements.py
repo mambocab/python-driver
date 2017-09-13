@@ -445,13 +445,13 @@ class PreparedStatementInvalidationTest(BasicSharedKeyspaceUnitTestCase):
         """
         self.cluster.protocol_version = ProtocolVersion.V5
         prepared_statement = self.session.prepare("SELECT * from {} WHERE a = ?".format(self.table_name))
-        id_before = prepared_statement.query_id
+        id_before = prepared_statement.result_metadata_id
 
         self.session.execute("ALTER TABLE {} ADD c int".format(self.table_name))
         bound_statement = prepared_statement.bind((1, ))
         self.session.execute(bound_statement, timeout=1)
 
-        id_after = prepared_statement.query_id
+        id_after = prepared_statement.result_metadata_id
 
         self.assertNotEqual(id_before, id_after)
 
@@ -493,19 +493,20 @@ class PreparedStatementInvalidationTest(BasicSharedKeyspaceUnitTestCase):
         @since 3.12
         @jira_ticket PYTHON-808
         """
-        one_cluster = Cluster()
+        one_cluster = Cluster(metrics_enabled=True, protocol_version=PROTOCOL_VERSION,
+                              allow_beta_protocol_version=True)
         one_session = one_cluster.connect()
         self.addCleanup(one_cluster.shutdown)
 
         stm = "SELECT * from {} WHERE a = ?".format(self.table_name)
         one_prepared_stm = one_session.prepare(stm)
 
-        one_id_before = one_prepared_stm.query_id
+        one_id_before = one_prepared_stm.result_metadata_id
 
         self.session.execute("ALTER TABLE {} ADD c int".format(self.table_name))
         one_session.execute(one_prepared_stm, (1, ))
 
-        one_id_after = one_prepared_stm.query_id
+        one_id_after = one_prepared_stm.result_metadata_id
         self.assertNotEqual(one_id_before, one_id_after)
 
     def test_not_reprepare_invalid_statements(self):

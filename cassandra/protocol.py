@@ -632,7 +632,6 @@ class ResultMessage(_MessageType):
     @classmethod
     def recv_results_rows(cls, f, protocol_version, user_type_map, result_metadata):
         paging_state, column_metadata, result_metadata_id = cls.recv_results_metadata(f, user_type_map)
-        print 'got results metadata; id =', result_metadata_id
         column_metadata = column_metadata or result_metadata
         rowcount = read_int(f)
         rows = [cls.recv_row(f, len(column_metadata)) for _ in range(rowcount)]
@@ -681,7 +680,7 @@ class ResultMessage(_MessageType):
 
         no_meta = bool(flags & cls._NO_METADATA_FLAG)
         if no_meta:
-            return paging_state, []
+            return paging_state, [], result_metadata_id
 
         glob_tblspec = bool(flags & cls._FLAGS_GLOBAL_TABLES_SPEC)
         if glob_tblspec:
