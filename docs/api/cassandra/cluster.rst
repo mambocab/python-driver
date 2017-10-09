@@ -148,6 +148,8 @@
 
    .. automethod:: execute_async(statement[, parameters][, trace][, custom_payload])
 
+   .. automethod:: execute_asyncio(statement[, parameters][, trace][, custom_payload])
+
    .. automethod:: prepare(statement)
 
    .. automethod:: shutdown()
@@ -185,6 +187,9 @@
    .. automethod:: add_errback(fn, *args, **kwargs)
 
    .. automethod:: add_callbacks(callback, errback, callback_args=(), callback_kwargs=None, errback_args=(), errback_args=None)
+
+.. autoclass:: CassandraAsyncioFuture (response_future)
+   :members:
 
 .. autoclass:: ResultSet ()
    :members:

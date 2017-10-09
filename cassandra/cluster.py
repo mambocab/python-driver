@@ -98,6 +98,19 @@ else:
     except ImportError:
         from cassandra.io.asyncorereactor import AsyncoreConnection as DefaultConnection  # NOQA
 
+# TODO: do we want a way for users to override stuff like this? e.g. "I'm
+# running on py3.4+ but I want to use trollius"
+asyncio = None  # if nothing is available, signal that with None
+try:  # prefer asyncio
+    import asyncio
+except ImportError:
+    pass
+if asyncio is None:
+    try:
+        import trollius as asyncio
+    except ImportError:
+        pass
+
 # Forces load of utf8 encoding module to avoid deadlock that occurs
 # if code that is being imported tries to import the module in a seperate
 # thread.
@@ -2097,6 +2110,35 @@ class Session(object):
         self._on_request(future)
         future.send_request()
         return future
+
+    if asyncio is None:
+        # If we don't have asyncio or trollius, define a
+        # Cluster.execute_asyncio that raises an error
+        def execute_asyncio(self, *args, **kwargs):
+            raise RuntimeError('Please install asyncio/trollius to use the '
+                               'coroutine execution API.')
+    else:
+        # If we have asyncio or trollius, define Cluster.execute_asyncio as
+        # normal
+        def execute_asyncio(self,
+                            query,
+                            parameters=None,
+                            trace=False,
+                            custom_payload=None,
+                            timeout=_NOT_SET,
+                            execution_profile=EXEC_PROFILE_DEFAULT,
+                            paging_state=None):
+            """
+            tktktkt
+            """
+            return CassandraAsyncioFuture(
+                response_future=self.execute_async(
+                    query=query, parameters=parameters, trace=trace,
+                    custom_payload=custom_payload, timeout=timeout,
+                    execution_profile=execution_profile,
+                    paging_state=paging_state
+                )
+            )
 
     def _create_response_future(self, query, parameters, trace, custom_payload, timeout, execution_profile=EXEC_PROFILE_DEFAULT, paging_state=None):
         """ Returns the ResponseFuture before calling send_request() on it """
@@ -4233,3 +4275,39 @@ class ResultSet(object):
         avoid sending this to untrusted parties.
         """
         return self.response_future._paging_state
+
+
+if asyncio is None:
+    future_class = object
+else:
+    future_class = asyncio.Future
+
+class CassandraAsyncioFuture(future_class):
+    """
+    An ``asyncio.Future`` subclass. An instance wraps a
+    :class:`ResponseFuture`, passing cancellation requests and surfacing the
+    wrapped object's results and exceptions.
+
+    You typically won't create this yourself; instead, use the
+    :meth:`Session.execute_asyncio` method.
+    """
+
+    _response_future = None
+    """
+    The wrapped :class:`.ResponseFuture` object.
+    """
+
+    def __init__(self, response_future):
+        super(CassandraAsyncioFuture, self).__init__()
+        self._response_future = response_future
+        response_future.add_callback(self._on_success)
+        response_future.add_errback(self._on_failure)
+
+    def cancel(self):
+        return self._response_future.cancel()
+
+    def _on_success(self):
+        self.set_result(self._response_future._final_result)
+
+    def _on_failure(self):
+        self.set_exception(self._response_future._final_exception)
