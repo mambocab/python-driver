@@ -3875,6 +3875,7 @@ class ResponseFuture(object):
 
         # apply each callback
         for callback_partial in to_call:
+            print('cb: calling ' + str(callback_partial))
             callback_partial()
 
     def _set_final_exception(self, response):
@@ -3896,6 +3897,7 @@ class ResponseFuture(object):
 
         # apply each callback
         for callback_partial in to_call:
+            print('err: calling ' + str(callback_partial))
             callback_partial()
 
     def _retry(self, reuse_connection, consistency_level, host):
@@ -4280,7 +4282,8 @@ class ResultSet(object):
 if asyncio is None:
     future_class = object
 else:
-    future_class = asyncio.Future
+    future_class = asyncio.get_event_loop().create_future().__class__
+
 
 class CassandraAsyncioFuture(future_class):
     """
@@ -4300,14 +4303,8 @@ class CassandraAsyncioFuture(future_class):
     def __init__(self, response_future):
         super(CassandraAsyncioFuture, self).__init__()
         self._response_future = response_future
-        response_future.add_callback(self._on_success)
-        response_future.add_errback(self._on_failure)
+        response_future.add_callback(self.set_result)
+        response_future.add_errback(self.set_exception)
 
     def cancel(self):
         return self._response_future.cancel()
-
-    def _on_success(self):
-        self.set_result(self._response_future._final_result)
-
-    def _on_failure(self):
-        self.set_exception(self._response_future._final_exception)
