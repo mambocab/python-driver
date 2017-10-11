@@ -2127,7 +2127,8 @@ class Session(object):
                             custom_payload=None,
                             timeout=_NOT_SET,
                             execution_profile=EXEC_PROFILE_DEFAULT,
-                            paging_state=None):
+                            paging_state=None,
+                            loop=None):
             """
             tktktkt
             """
@@ -2137,7 +2138,8 @@ class Session(object):
                     custom_payload=custom_payload, timeout=timeout,
                     execution_profile=execution_profile,
                     paging_state=paging_state
-                )
+                ),
+                loop=loop
             )
 
     def _create_response_future(self, query, parameters, trace, custom_payload, timeout, execution_profile=EXEC_PROFILE_DEFAULT, paging_state=None):
@@ -4285,6 +4287,7 @@ if asyncio is None:
     future_class = object
 else:
     future_class = asyncio.Future
+    default_event_loop = asyncio.get_event_loop()
 
 
 class CassandraAsyncioFuture(future_class):
@@ -4315,17 +4318,27 @@ class CassandraAsyncioFuture(future_class):
     """
     The wrapped :class:`.ResponseFuture` object.
     """
+    
+    _loop = None
 
-    def __init__(self, response_future):
-        super(CassandraAsyncioFuture, self).__init__()
+    def __init__(self, response_future, *args, **kwargs):
+        super(CassandraAsyncioFuture, self).__init__(*args, **kwargs)
         self.response_future = response_future
+
+        self._loop = kwargs.get('loop', None)
+        if self._loop is None:
+            try:
+                self._loop = asyncio.get_event_loop()
+            except RuntimeError:
+                self._loop = default_event_loop
+
         response_future.add_callback(self._set_result_threadsafe)
         response_future.add_errback(self._set_exception_threadsafe)
 
     def _set_result_threadsafe(self, result):
-        asyncio_event_loop.call_soon_threadsafe(self.set_result,
-                                                result)
+        self._loop.call_soon_threadsafe(self.set_result,
+                                                      result)
 
     def _set_exception_threadsafe(self, exception):
-        asyncio_event_loop.call_soon_threadsafe(self.set_exception,
-                                                exception)
+        self._loop.call_soon_threadsafe(self.set_exception,
+                                                      exception)
