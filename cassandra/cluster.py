@@ -3875,8 +3875,10 @@ class ResponseFuture(object):
 
         # apply each callback
         for callback_partial in to_call:
-            print('cb: calling ' + str(callback_partial))
+            print('cb: calling', callback_partial)
             callback_partial()
+            print('cb: called it', callback_partial)
+            print('cb: here"s the future:', callback_partial.func.__self__)
 
     def _set_final_exception(self, response):
         self._cancel_timer()
@@ -4282,29 +4284,48 @@ class ResultSet(object):
 if asyncio is None:
     future_class = object
 else:
-    future_class = asyncio.get_event_loop().create_future().__class__
+    future_class = asyncio.Future
 
 
 class CassandraAsyncioFuture(future_class):
     """
     An ``asyncio.Future`` subclass. An instance wraps a
-    :class:`ResponseFuture`, passing cancellation requests and surfacing the
-    wrapped object's results and exceptions.
+    :class:`ResponseFuture`, surfacing the wrapped object's results and
+    exceptions.
+
+    This class does not surface other results of the request, such as warnings
+    and custom payloads returned from the server. Those values are still
+    accessible on the wrapped :attr:`.response_future`.
 
     You typically won't create this yourself; instead, use the
     :meth:`Session.execute_asyncio` method.
+
+    Known Limitations
+    -----------------
+    - For simplicity, this is a subclass of `asyncio.Future`. Thus, this
+      implementation doesn't use the recommended ``loop.create_future()``
+      pattern recommended in the ``asyncio`` documentation.
+    - :class:`.ResponseFuture` objects do not have a means of cancellation.
+      This means that cancelling a ``CassandraAsyncioFuture`` will result in,
+      e.g. calling callbacks on that object, but the underlying Cassandra
+      request will continue normally.
     """
 
-    _response_future = None
+    response_future = None
     """
     The wrapped :class:`.ResponseFuture` object.
     """
 
     def __init__(self, response_future):
         super(CassandraAsyncioFuture, self).__init__()
-        self._response_future = response_future
-        response_future.add_callback(self.set_result)
-        response_future.add_errback(self.set_exception)
+        self.response_future = response_future
+        response_future.add_callback(self._set_result_threadsafe)
+        response_future.add_errback(self._set_exception_threadsafe)
 
-    def cancel(self):
-        return self._response_future.cancel()
+    def _set_result_threadsafe(self, result):
+        asyncio_event_loop.call_soon_threadsafe(self.set_result,
+                                                result)
+
+    def _set_exception_threadsafe(self, exception):
+        asyncio_event_loop.call_soon_threadsafe(self.set_exception,
+                                                exception)
