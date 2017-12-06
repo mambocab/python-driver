@@ -1,6 +1,6 @@
 from cassandra.io.asyncioreactor import AsyncioConnection
 from tests import is_monkey_patched
-from tests.unit.io.utils import TimerCallback, TimerTestMixin
+from tests.unit.io.utils import ReactorTestMixin, TimerCallback, TimerTestMixin
 
 from mock import patch
 
@@ -32,6 +32,8 @@ class AsyncioTimerTests(TimerTestMixin, unittest.TestCase):
 
         super(AsyncioTimerTests, self).setUp()
 
+    # parent's test_timer_cancellation depends on the connection class having a
+    # timer manager; AsyncioConnection doesn't
     def test_timer_cancellation(self):
         # Various lists for tracking callback stage
         timeout = .1
@@ -42,3 +44,7 @@ class AsyncioTimerTests(TimerTestMixin, unittest.TestCase):
         time.sleep(.2)
         # Assert that the cancellation was honored
         self.assertFalse(callback.was_invoked())
+
+class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
+    connection_class = AsyncioConnection
+    socket_attr_name = '_socket'
