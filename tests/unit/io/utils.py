@@ -189,6 +189,12 @@ class ReactorTestMixin(object):
     def set_socket(self, connection, obj):
         return setattr(connection, self.socket_attr_name, obj)
 
+    def get_handle_read(self, connection):
+        return connection.handle_read
+
+    def get_handle_write(self, connection):
+        return connection.handle_write
+
     def make_header_prefix(self, message_class, version=2, stream_id=0):
         return binary_type().join(map(uint8_pack, [
             0xff & (HEADER_DIRECTION_TO_CLIENT | version),
@@ -225,20 +231,22 @@ class ReactorTestMixin(object):
         c = self.make_connection()
 
         # let it write the OptionsMessage
-        c.handle_write(*self.null_handle_function_args)
+        print('writing optionsmessage')
+        self.get_handle_write(c)(*self.null_handle_function_args)
+        print('wrote optionsmessage')
 
         # read in a SupportedMessage response
         header = self.make_header_prefix(SupportedMessage)
         options = self.make_options_body()
         self.get_socket(c).recv.return_value = self.make_msg(header, options)
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         # let it write out a StartupMessage
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         header = self.make_header_prefix(ReadyMessage, stream_id=1)
         self.get_socket(c).recv.return_value = self.make_msg(header)
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         self.assertTrue(c.connected_event.is_set())
         return c
@@ -262,7 +270,7 @@ class ReactorTestMixin(object):
                 return response
 
         self.get_socket(c).recv.side_effect = side_effect
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
         self.assertEqual(c._current_frame.end_pos, 20000 + len(header))
         # the EAGAIN prevents it from reading the last 100 bytes
         c._iobuf.seek(0, os.SEEK_END)
@@ -270,7 +278,7 @@ class ReactorTestMixin(object):
         self.assertEqual(pos, 4096 + 4096)
 
         # now tell it to read the last 100 bytes
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
         c._iobuf.seek(0, os.SEEK_END)
         pos = c._iobuf.tell()
         self.assertEqual(pos, 4096 + 4096 + 100)
@@ -279,13 +287,13 @@ class ReactorTestMixin(object):
         c = self.make_connection()
 
         # let it write the OptionsMessage
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         # read in a SupportedMessage response
         header = self.make_header_prefix(SupportedMessage, version=0xa4)
         options = self.make_options_body()
         self.get_socket(c).recv.return_value = self.make_msg(header, options)
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         # make sure it errored correctly
         self.assertTrue(c.is_defunct)
@@ -296,21 +304,21 @@ class ReactorTestMixin(object):
         c = self.make_connection()
 
         # let it write the OptionsMessage
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         # read in a SupportedMessage response
         header = self.make_header_prefix(SupportedMessage)
         options = self.make_options_body()
         self.get_socket(c).recv.return_value = self.make_msg(header, options)
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         # let it write out a StartupMessage
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         header = self.make_header_prefix(ServerError, stream_id=1)
         body = self.make_error_body(ServerError.error_code, ServerError.summary)
         self.get_socket(c).recv.return_value = self.make_msg(header, body)
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         # make sure it errored correctly
         self.assertTrue(c.is_defunct)
@@ -322,7 +330,7 @@ class ReactorTestMixin(object):
 
         # make the OptionsMessage write fail
         self.get_socket(c).send.side_effect = socket_error(errno.EIO, "bad stuff!")
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         # make sure it errored correctly
         self.assertTrue(c.is_defunct)
@@ -335,13 +343,15 @@ class ReactorTestMixin(object):
         # make the OptionsMessage write block
         self.get_socket(c).send.side_effect = socket_error(errno.EAGAIN,
                                                            "socket busy")
-        c.handle_write(*self.null_handle_function_args)
+        print('handling write')
+        self.get_handle_write(c)(*self.null_handle_function_args)
+        print('handled write')
 
         self.assertFalse(c.is_defunct)
 
         # try again with normal behavior
         self.get_socket(c).send.side_effect = lambda x: len(x)
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
         self.assertFalse(c.is_defunct)
         self.assertTrue(self.get_socket(c).send.call_args is not None)
 
@@ -352,7 +362,7 @@ class ReactorTestMixin(object):
         write_size = 4
         self.get_socket(c).send.side_effect = None
         self.get_socket(c).send.return_value = write_size
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         msg_size = 9  # v3+ frame header
         expected_writes = int(math.ceil(float(msg_size) / write_size))
@@ -367,12 +377,12 @@ class ReactorTestMixin(object):
         c = self.make_connection()
 
         # let it write the OptionsMessage
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         # read in a SupportedMessage response
         self.get_socket(c).recv.side_effect = socket_error(errno.EIO,
                                                            "busy socket")
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         # make sure it errored correctly
         self.assertTrue(c.is_defunct)
@@ -387,19 +397,19 @@ class ReactorTestMixin(object):
         message = self.make_msg(header, options)
 
         self.get_socket(c).recv.return_value = message[0:1]
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
         self.assertEqual(c._iobuf.getvalue(), message[0:1])
 
         self.get_socket(c).recv.return_value = message[1:]
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
         self.assertEqual(six.binary_type(), c._iobuf.getvalue())
 
         # let it write out a StartupMessage
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         header = self.make_header_prefix(ReadyMessage, stream_id=1)
         self.get_socket(c).recv.return_value = self.make_msg(header)
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         self.assertTrue(c.connected_event.is_set())
         self.assertFalse(c.is_defunct)
@@ -413,20 +423,20 @@ class ReactorTestMixin(object):
 
         # read in the first nine bytes
         self.get_socket(c).recv.return_value = message[:9]
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
         self.assertEqual(c._iobuf.getvalue(), message[:9])
 
         # ... then read in the rest
         self.get_socket(c).recv.return_value = message[9:]
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
         self.assertEqual(six.binary_type(), c._iobuf.getvalue())
 
         # let it write out a StartupMessage
-        c.handle_write(*self.null_handle_function_args)
+        self.get_handle_write(c)(*self.null_handle_function_args)
 
         header = self.make_header_prefix(ReadyMessage, stream_id=1)
         self.get_socket(c).recv.return_value = self.make_msg(header)
-        c.handle_read(*self.null_handle_function_args)
+        self.get_handle_read(c)(*self.null_handle_function_args)
 
         self.assertTrue(c.connected_event.is_set())
         self.assertFalse(c.is_defunct)

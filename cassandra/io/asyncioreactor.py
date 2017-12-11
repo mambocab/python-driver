@@ -90,10 +90,13 @@ class AsyncioConnection(Connection):
         self._send_options_message()
 
     @classmethod
-    def initialize_reactor(cls):
+    def initialize_reactor(cls, loop=None):
         with cls._lock:
             if cls._pid != os.getpid():
                 cls._loop = None
+
+            cls._loop = loop
+
             if cls._loop is None:
                 cls._loop = asyncio.get_event_loop()
 
@@ -140,6 +143,7 @@ class AsyncioConnection(Connection):
         while True:
             try:
                 next_msg = yield from self._write_queue.get()
+                print('message: {}'.format(next_msg))
                 if next_msg:
                     yield from self._loop.sock_sendall(self._socket, next_msg)
             except socket.error as err:
@@ -152,6 +156,7 @@ class AsyncioConnection(Connection):
         while True:
             try:
                 buf = yield from self._loop.sock_recv(self._socket, self.in_buffer_size)
+                print('buf: {}'.format(next_msg))
                 self._iobuf.write(buf)
             except socket.error as err:
                 log.debug("Exception during socket recv for %s: %s",
