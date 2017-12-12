@@ -21,4 +21,4 @@ def tracefunc(frame, event, arg, indent=[0]):
     return tracefunc
 
 import sys
-sys.settrace(tracefunc)
+# sys.settrace(tracefunc)

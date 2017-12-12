@@ -231,9 +231,7 @@ class ReactorTestMixin(object):
         c = self.make_connection()
 
         # let it write the OptionsMessage
-        print('writing optionsmessage')
         self.get_handle_write(c)(*self.null_handle_function_args)
-        print('wrote optionsmessage')
 
         # read in a SupportedMessage response
         header = self.make_header_prefix(SupportedMessage)

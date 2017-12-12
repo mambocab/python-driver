@@ -143,7 +143,6 @@ class AsyncioConnection(Connection):
         while True:
             try:
                 next_msg = yield from self._write_queue.get()
-                print('message: {}'.format(next_msg))
                 if next_msg:
                     yield from self._loop.sock_sendall(self._socket, next_msg)
             except socket.error as err:
@@ -156,7 +155,6 @@ class AsyncioConnection(Connection):
         while True:
             try:
                 buf = yield from self._loop.sock_recv(self._socket, self.in_buffer_size)
-                print('buf: {}'.format(next_msg))
                 self._iobuf.write(buf)
             except socket.error as err:
                 log.debug("Exception during socket recv for %s: %s",
