@@ -288,9 +288,8 @@ class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
     def setUpClass(cls):
         # AsyncioConnection.initialize_reactor()
         cls.patchers = (
-                        # patch.object(AsyncioConnection._loop, '_selector',
-                        #              mock.Mock()),
-                        patch('socket.socket', new=mock_nonblocking_socket),)
+            patch('socket.socket', new=mock_nonblocking_socket()),
+        )
         for p in cls.patchers:
             p.start()
 
@@ -302,22 +301,18 @@ class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
             p.stop()
 
     def setUp(self):
-        loop = TestBaseSelectorEventLoop()
-        self.new_test_loop()
-        AsyncioConnection.initialize_reactor(loop)
+        self.selector = mock.Mock()
+        self.selector.select.return_value = []
+        self.loop = TestBaseSelectorEventLoop(self.selector)
+        self.set_event_loop(self.loop)
+
+        AsyncioConnection.initialize_reactor(self.loop)
 
         super(AsyncioReactorTest, self).setUp()
-        # loop_patcher = patch.object(AsyncioConnection,
-        #                             '_loop',
-        #                             self.new_test_loop())
-        # self.addCleanup(loop_patcher.stop)
-        # loop_patcher.start()
 
-    def make_connection(self):
-        print('calling super.make_connection')
-        c = super(AsyncioReactorTest, self).make_connection()
-        print('made connection')
-        return c
+    def tearDown(self):
+        self.loop.stop()
+        AsyncioConnection._loop_thread.join()
 
     def get_handle_read(self, connection):
         def handle_read_synchronous():
