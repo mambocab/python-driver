@@ -249,11 +249,7 @@ class TestBaseSelectorEventLoop(asyncio.selector_events.BaseSelectorEventLoop):
         pass
 
 
-class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
-    connection_class = AsyncioConnection
-    socket_attr_name = '_socket'
-    patchers = ()
-
+class AsyncioUtilMixin(object):
     def set_event_loop(self, loop, cleanup=True):
         assert loop is not None
         # ensure that the event loop is passed explicitly in asyncio
@@ -266,13 +262,11 @@ class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
         loop = TestLoop(gen)
         self.set_event_loop(loop)
 
-        #
-        # loop._add_reader = mock.Mock()
-        # loop._add_reader._is_coroutine = False
-        # loop._add_writer = mock.Mock()
-        # loop._remove_reader = mock.Mock()
-        # loop._remove_writer = mock.Mock()
-        #
+        loop._add_reader = mock.Mock()
+        loop._add_reader._is_coroutine = False
+        loop._add_writer = mock.Mock()
+        loop._remove_reader = mock.Mock()
+        loop._remove_writer = mock.Mock()
 
         return loop
     new_test_loop.__test__ = False
@@ -284,16 +278,19 @@ class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
             executor.shutdown(wait=True)
         loop.close()
 
+
+class AsyncioReactorTest(ReactorTestMixin, AsyncioUtilMixin, unittest.TestCase):
+    connection_class = AsyncioConnection
+    socket_attr_name = '_socket'
+    patchers = ()
+
     @classmethod
     def setUpClass(cls):
-        # AsyncioConnection.initialize_reactor()
         cls.patchers = (
             patch('socket.socket', new=mock_nonblocking_socket()),
         )
         for p in cls.patchers:
             p.start()
-
-        # AsyncioConnection._loop._selector.select.return_value = []
 
     @classmethod
     def tearDownClass(cls):
@@ -304,11 +301,14 @@ class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
         self.selector = mock.Mock()
         self.selector.select.return_value = []
         self.loop = TestBaseSelectorEventLoop(self.selector)
+
         self.set_event_loop(self.loop)
 
         AsyncioConnection.initialize_reactor(self.loop)
 
         super(AsyncioReactorTest, self).setUp()
+
+        # AsyncioConnection._loop._selector.select.return_value = []
 
     def tearDown(self):
         self.loop.stop()
@@ -323,8 +323,6 @@ class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
                 loop=self.connection_class._loop
             )
             self.connection_class._loop._run_once()
-            # self.connection_class._loop.call_soon(self.connection_class._loop.stop)
-            # self.connection_class._loop.run_forever()
 
         return handle_read_synchronous
 
@@ -337,7 +335,5 @@ class AsyncioReactorTest(ReactorTestMixin, unittest.TestCase):
                 loop=self.connection_class._loop
             )
             self.connection_class._loop._run_once()
-            # self.connection_class._loop.call_soon(self.connection_class._loop.stop)
-            # self.connection_class._loop.run_forever()
 
         return handle_write_synchronous

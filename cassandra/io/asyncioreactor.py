@@ -144,7 +144,9 @@ class AsyncioConnection(Connection):
             try:
                 next_msg = yield from self._write_queue.get()
                 if next_msg:
+                    log.debug('about to write {}'.format(next_msg))
                     yield from self._loop.sock_sendall(self._socket, next_msg)
+                    log.debug('wrote {}'.format(next_msg))
             except socket.error as err:
                 log.debug("Exception in send for %s: %s", self, err)
                 self.defunct(err)
