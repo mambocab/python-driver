@@ -228,6 +228,8 @@ class ReactorTestMixin(object):
         return header + uint32_pack(len(body)) + body
 
     def test_successful_connection(self):
+        import logging
+        log = logging.getLogger(__name__)
         c = self.make_connection()
 
         # let it write the OptionsMessage
@@ -237,14 +239,20 @@ class ReactorTestMixin(object):
         header = self.make_header_prefix(SupportedMessage)
         options = self.make_options_body()
         self.get_socket(c).recv.return_value = self.make_msg(header, options)
+        log.debug('calling handle read')
         self.get_handle_read(c)(*self.null_handle_function_args)
+        log.debug('returned from handle read')
 
         # let it write out a StartupMessage
+        log.debug('calling handle write')
         self.get_handle_write(c)(*self.null_handle_function_args)
+        log.debug('called handle write')
 
         header = self.make_header_prefix(ReadyMessage, stream_id=1)
         self.get_socket(c).recv.return_value = self.make_msg(header)
+        log.debug('calling handle_read, made header prefix')
         self.get_handle_read(c)(*self.null_handle_function_args)
+        log.debug('returning from handle_read, made header prefix')
 
         self.assertTrue(c.connected_event.is_set())
         return c

@@ -156,7 +156,9 @@ class AsyncioConnection(Connection):
     def handle_read(self):
         while True:
             try:
+                log.debug('about to recv')
                 buf = yield from self._loop.sock_recv(self._socket, self.in_buffer_size)
+                log.debug("recv'd {}".format(buf))
                 self._iobuf.write(buf)
             except socket.error as err:
                 log.debug("Exception during socket recv for %s: %s",
@@ -165,6 +167,11 @@ class AsyncioConnection(Connection):
                 return  # leave the read loop
 
             if buf and self._iobuf.tell():
+                log.debug('about to process io buffer. {}, header {}, end_pos {}'.format(
+                    buf,
+                    self._read_frame_header(),
+                    self._current_frame.end_pos
+                ))
                 self.process_io_buffer()
             else:
                 log.debug("Connection %s closed by server", self)
