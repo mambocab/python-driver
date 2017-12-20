@@ -289,6 +289,19 @@ class AsyncioReactorTest(ReactorTestMixin, AsyncioUtilMixin, unittest.TestCase):
     socket_attr_name = '_socket'
     patchers = ()
 
+    def make_connection(self):
+        c = super(AsyncioReactorTest, self).make_connection()
+
+        # mixin tests assume we can call to run it once, so we stop the
+        # background processes that run them continuously
+        c._read_watcher.cancel()
+        c._write_watcher.cancel()
+        # patch watchers so .close won't choke trying too cancel them again
+        c._write_watcher = mock.Mock()
+        c._read_watcher = mock.Mock()
+
+        return c
+
     @classmethod
     def setUpClass(cls):
         cls.patchers = (
@@ -323,16 +336,16 @@ class AsyncioReactorTest(ReactorTestMixin, AsyncioUtilMixin, unittest.TestCase):
         def handle_read_synchronous():
             # print(connection)
             # print(connection.handle_read)
-            # asyncio.run_coroutine_threadsafe(
-            #     coro=connection.handle_read(),
-            #     loop=self.connection_class._loop
-            # )
-            log.debug('handle_read: calling _run_once 1')
-            self.connection_class._loop._run_once()
-            log.debug('handle_read: calling _run_once 2')
-            self.connection_class._loop._run_once()
-            log.debug('handle_read: calling _run_once 3')
-            self.connection_class._loop._run_once()
+            asyncio.run_coroutine_threadsafe(
+                coro=connection.handle_read(),
+                loop=self.connection_class._loop
+            )
+            # log.debug('handle_read: calling _run_once 1')
+            # self.connection_class._loop._run_once()
+            # log.debug('handle_read: calling _run_once 2')
+            # self.connection_class._loop._run_once()
+            # log.debug('handle_read: calling _run_once 3')
+            # self.connection_class._loop._run_once()
 
         return handle_read_synchronous
 
@@ -340,15 +353,15 @@ class AsyncioReactorTest(ReactorTestMixin, AsyncioUtilMixin, unittest.TestCase):
         def handle_write_synchronous():
             # print(connection)
             # print(connection.handle_write)
-            # asyncio.run_coroutine_threadsafe(
-            #     coro=connection.handle_write(),
-            #     loop=self.connection_class._loop
-            # )
-            log.debug('handle_write: calling _run_once 1')
-            self.connection_class._loop._run_once()
-            log.debug('handle_write: calling _run_once 2')
-            self.connection_class._loop._run_once()
-            log.debug('handle_write: calling _run_once 3')
-            self.connection_class._loop._run_once()
+            asyncio.run_coroutine_threadsafe(
+                coro=connection.handle_write(),
+                loop=self.connection_class._loop
+            )
+            # log.debug('handle_write: calling _run_once 1')
+            # self.connection_class._loop._run_once()
+            # log.debug('handle_write: calling _run_once 2')
+            # self.connection_class._loop._run_once()
+            # log.debug('handle_write: calling _run_once 3')
+            # self.connection_class._loop._run_once()
 
         return handle_write_synchronous

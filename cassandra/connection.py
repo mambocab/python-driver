@@ -574,6 +574,13 @@ class Connection(object):
             else:
                 pos = self._iobuf.tell()
 
+            log.debug('might process io buffer: {}'.format(
+                {'self': self,
+                 # '_current_frame': self._current_frame,
+                 'pos': pos,
+                 '_current_frame.end_pos':
+                     self._current_frame.end_pos if self._current_frame
+                     else None}))
             if not self._current_frame or pos < self._current_frame.end_pos:
                 # we don't have a complete header yet or we
                 # already saw a header, but we don't have a

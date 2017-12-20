@@ -140,6 +140,7 @@ class AsyncioConnection(Connection):
 
     @asyncio.coroutine
     def handle_write(self):
+        log.debug('entering handle_write')
         while True:
             try:
                 next_msg = yield from self._write_queue.get()
@@ -154,6 +155,7 @@ class AsyncioConnection(Connection):
 
     @asyncio.coroutine
     def handle_read(self):
+        log.debug('entering handle_read')
         while True:
             try:
                 log.debug('about to recv')

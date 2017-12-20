@@ -238,7 +238,24 @@ class ReactorTestMixin(object):
         # read in a SupportedMessage response
         header = self.make_header_prefix(SupportedMessage)
         options = self.make_options_body()
-        self.get_socket(c).recv.return_value = self.make_msg(header, options)
+
+        class make_msg_side_effect(object):
+            def __init__(self, make_msg):
+                self._called = False
+                self.make_msg = make_msg
+
+            def __call__(self, *args):
+                if self._called:
+                    log.debug('raising for side_effect')
+                    # raise socket_error(errno.EWOULDBLOCK)
+                    # from io import BlockingIOError
+                    raise BlockingIOError()
+                self._called = True
+                log.debug('returning from side_effect')
+                return self.make_msg(header, options)
+        self.get_socket(c).recv.side_effect = make_msg_side_effect(self.make_msg)
+
+        # self.get_socket(c).recv.return_value = self.make_msg(header, options)
         log.debug('calling handle read')
         self.get_handle_read(c)(*self.null_handle_function_args)
         log.debug('returned from handle read')
