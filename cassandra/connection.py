@@ -585,8 +585,10 @@ class Connection(object):
                 # we don't have a complete header yet or we
                 # already saw a header, but we don't have a
                 # complete message yet
+                log.debug('not processing io buffer')
                 return
             else:
+                log.debug('processing io buffer')
                 frame = self._current_frame
                 self._iobuf.seek(frame.body_offset)
                 msg = self._iobuf.read(frame.end_pos - frame.body_offset)

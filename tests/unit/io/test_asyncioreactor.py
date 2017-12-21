@@ -300,6 +300,8 @@ class AsyncioReactorTest(ReactorTestMixin, AsyncioUtilMixin, unittest.TestCase):
         c._write_watcher = mock.Mock()
         c._read_watcher = mock.Mock()
 
+        c.connected_event.set()
+
         return c
 
     @classmethod
@@ -319,6 +321,16 @@ class AsyncioReactorTest(ReactorTestMixin, AsyncioUtilMixin, unittest.TestCase):
         self.selector = mock.Mock()
         self.selector.select.return_value = []
         self.loop = TestBaseSelectorEventLoop(self.selector)
+
+        #
+        self.loop._add_reader = mock.Mock()
+        self.loop.add_reader = mock.Mock()
+        self.loop._add_reader._is_coroutine = False
+        self.loop._add_writer = mock.Mock()
+        self.loop.add_writer = mock.Mock()
+        self.loop._remove_reader = mock.Mock()
+        self.loop._remove_writer = mock.Mock()
+        #
 
         self.set_event_loop(self.loop)
 

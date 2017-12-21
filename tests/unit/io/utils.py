@@ -239,21 +239,21 @@ class ReactorTestMixin(object):
         header = self.make_header_prefix(SupportedMessage)
         options = self.make_options_body()
 
-        class make_msg_side_effect(object):
-            def __init__(self, make_msg):
+        class make_side_effect_once(object):
+            def __init__(self, rv):
                 self._called = False
-                self.make_msg = make_msg
+                self.rv = rv
 
             def __call__(self, *args):
                 if self._called:
                     log.debug('raising for side_effect')
-                    # raise socket_error(errno.EWOULDBLOCK)
-                    # from io import BlockingIOError
                     raise BlockingIOError()
                 self._called = True
                 log.debug('returning from side_effect')
-                return self.make_msg(header, options)
-        self.get_socket(c).recv.side_effect = make_msg_side_effect(self.make_msg)
+                return self.rv
+        self.get_socket(c).recv.side_effect = make_side_effect_once(
+            self.make_msg(header, options)
+        )
 
         # self.get_socket(c).recv.return_value = self.make_msg(header, options)
         log.debug('calling handle read')
@@ -266,7 +266,10 @@ class ReactorTestMixin(object):
         log.debug('called handle write')
 
         header = self.make_header_prefix(ReadyMessage, stream_id=1)
-        self.get_socket(c).recv.return_value = self.make_msg(header)
+        self.get_socket(c).recv.side_effect = make_side_effect_once(
+            self.make_msg(header)
+        )
+        # self.get_socket(c).recv.return_value = self.make_msg(header)
         log.debug('calling handle_read, made header prefix')
         self.get_handle_read(c)(*self.null_handle_function_args)
         log.debug('returning from handle_read, made header prefix')
@@ -291,6 +294,9 @@ class ReactorTestMixin(object):
                 raise response
             else:
                 return response
+
+        import logging
+        log = logging.getLogger(__name__)
 
         self.get_socket(c).recv.side_effect = side_effect
         self.get_handle_read(c)(*self.null_handle_function_args)
