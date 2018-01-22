@@ -50,6 +50,9 @@ schedules:
       include: [master]
     env_vars: |
       EVENT_LOOP_MANAGER='asyncio'
+    matrix:
+      exclude:
+        - python: [2.7]
 
   weekly_async:
     schedule: 0 10 * * 7
