@@ -25,6 +25,7 @@ install:
 
 script:
   - |
+    set -x
     changed_code_filenames=`git diff --name-only $TRAVIS_COMMIT_RANGE`
     changed_driver_filenames=`echo "$changed_code_filenames" | grep '^cassandra'`
     changelog_changed=`echo "$changed_code_filenames" | grep '^CHANGELOG.rst'`
