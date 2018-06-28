@@ -2192,6 +2192,35 @@ class Session(object):
         future.send_request()
         return future
 
+    def _exececute_targeted(self, query, parameters=None, trace=False,
+                            custom_payload=None, timeout=_NOT_SET,
+                            execution_profile=EXEC_PROFILE_DEFAULT,
+                            paging_state=None, host=_NOT_SET):
+        return self._exececute_async_targeted(
+            query=query,
+            parameters=parameters,
+            trace=trace,
+            custom_payload=custom_payload,
+            timeout=timeout,
+            execution_profile=execution_profile,
+            paging_state=paging_state,
+            host=host
+        ).result()
+
+    def _exececute_async_targeted(self, query, parameters=None, trace=False,
+                                  custom_payload=None, timeout=_NOT_SET,
+                                  execution_profile=EXEC_PROFILE_DEFAULT,
+                                  paging_state=None, host=_NOT_SET):
+        return self.execute_async(
+            query=query,
+            parameters=parameters,
+            trace=trace,
+            custom_payload=custom_payload,
+            timeout=timeout,
+            execution_profile=execution_profile,
+            paging_state=paging_state,
+        )
+
     def _create_response_future(self, query, parameters, trace, custom_payload, timeout, execution_profile=EXEC_PROFILE_DEFAULT, paging_state=None):
         """ Returns the ResponseFuture before calling send_request() on it """
 
