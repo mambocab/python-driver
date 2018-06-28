@@ -268,10 +268,18 @@ class ProfileManager(object):
 
     def __init__(self):
         self.profiles = dict()
+        self._internal_profiles = dict()
+
+    @property
+    def _all_profiles(self):
+        """
+        Every profile -- including internal-use-only ones.
+        """
+        return list(self.profiles.values()) + list(self._secret_profiles.values())
 
     def _profiles_without_explicit_lbps(self):
         names = (profile_name for
-                 profile_name, profile in self.profiles.items()
+                 profile_name, profile in self._all_profiles()
                  if not profile._load_balancing_policy_explicit)
         return tuple(
             'EXEC_PROFILE_DEFAULT' if n is EXEC_PROFILE_DEFAULT else n
@@ -279,33 +287,33 @@ class ProfileManager(object):
         )
 
     def distance(self, host):
-        distances = set(p.load_balancing_policy.distance(host) for p in self.profiles.values())
+        distances = set(p.load_balancing_policy.distance(host) for p in self._all_profiles())
         return HostDistance.LOCAL if HostDistance.LOCAL in distances else \
             HostDistance.REMOTE if HostDistance.REMOTE in distances else \
             HostDistance.IGNORED
 
     def populate(self, cluster, hosts):
-        for p in self.profiles.values():
+        for p in self._all_profiles():
             p.load_balancing_policy.populate(cluster, hosts)
 
     def check_supported(self):
-        for p in self.profiles.values():
+        for p in self._all_profiles():
             p.load_balancing_policy.check_supported()
 
     def on_up(self, host):
-        for p in self.profiles.values():
+        for p in self._all_profiles():
             p.load_balancing_policy.on_up(host)
 
     def on_down(self, host):
-        for p in self.profiles.values():
+        for p in self._all_profiles():
             p.load_balancing_policy.on_down(host)
 
     def on_add(self, host):
-        for p in self.profiles.values():
+        for p in self._all_profiles():
             p.load_balancing_policy.on_add(host)
 
     def on_remove(self, host):
-        for p in self.profiles.values():
+        for p in self._all_profiles():
             p.load_balancing_policy.on_remove(host)
 
     @property
@@ -1039,7 +1047,7 @@ class Cluster(object):
             session.user_type_registered(keyspace, user_type, klass)
         UserType.evict_udt_class(keyspace, user_type)
 
-    def add_execution_profile(self, name, profile, pool_wait_timeout=5):
+    def add_execution_profile(self, name, profile, pool_wait_timeout=5, _internal_only=False):
         """
         Adds an :class:`.ExecutionProfile` to the cluster. This makes it available for use by ``name`` in :meth:`.Session.execute`
         and :meth:`.Session.execute_async`. This method will raise if the profile already exists.
@@ -1053,11 +1061,14 @@ class Cluster(object):
         `concurrent.futures.wait <https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.wait>`_
         for timeout semantics).
         """
+        profiles = (self.profile_manager._internal_profiles
+                    if _internal_only else
+                    self.profile_manager.profiles)
         if not isinstance(profile, ExecutionProfile):
             raise TypeError("profile must be an instance of ExecutionProfile")
         if self._config_mode == _ConfigMode.LEGACY:
             raise ValueError("Cannot add execution profiles when legacy parameters are set explicitly.")
-        if name in self.profile_manager.profiles:
+        if name in profiles:
             raise ValueError("Profile %s already exists")
         contact_points_but_no_lbp = (
             self._contact_points_explicit and not
@@ -1074,7 +1085,7 @@ class Cluster(object):
                 'in the ExecutionProfile.'
                 ''.format(name=repr(name), self=self, ep=profile))
 
-        self.profile_manager.profiles[name] = profile
+        profiles[name] = profile
         profile.load_balancing_policy.populate(self, self.metadata.all_hosts())
         # on_up after populate allows things like DCA LBP to choose default local dc
         for host in filter(lambda h: h.is_up, self.metadata.all_hosts()):
