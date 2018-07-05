@@ -2361,7 +2361,7 @@ class SchemaParserV3(SchemaParserV22):
         trigger_meta = TriggerMetadata(table_metadata, name, options)
         return trigger_meta
 
-    def _query_all(self):
+    def _query_all(self, extension_queries=None):
         cl = ConsistencyLevel.ONE
         queries = [
             QueryMessage(query=self._SELECT_KEYSPACES, consistency_level=cl),
@@ -2373,7 +2373,7 @@ class SchemaParserV3(SchemaParserV22):
             QueryMessage(query=self._SELECT_TRIGGERS, consistency_level=cl),
             QueryMessage(query=self._SELECT_INDEXES, consistency_level=cl),
             QueryMessage(query=self._SELECT_VIEWS, consistency_level=cl)
-        ]
+        ] + (extension_queries or [])
 
         responses = self.connection.wait_for_responses(*queries, timeout=self.timeout, fail_on_error=False)
         ((ks_success, ks_result), (table_success, table_result),
@@ -2382,7 +2382,8 @@ class SchemaParserV3(SchemaParserV22):
          (aggregates_success, aggregates_result),
          (triggers_success, triggers_result),
          (indexes_success, indexes_result),
-         (views_success, views_result)) = responses
+         (views_success, views_result)) = responses[:9]
+        extra_responses = responses[9:]
 
         self.keyspaces_result = self._handle_results(ks_success, ks_result)
         self.tables_result = self._handle_results(table_success, table_result)
@@ -2395,6 +2396,7 @@ class SchemaParserV3(SchemaParserV22):
         self.views_result = self._handle_results(views_success, views_result)
 
         self._aggregate_results()
+        return extra_responses
 
     def _aggregate_results(self):
         super(SchemaParserV3, self)._aggregate_results()
@@ -2415,7 +2417,57 @@ class SchemaParserV3(SchemaParserV22):
 
 
 class SchemaParserV4(SchemaParserV3):
-    pass
+    _SELECT_VIRTUAL_KEYSPACES = 'SELECT * from system_virtual_schema.keyspaces'
+    _SELECT_VIRTUAL_TABLES = 'SELECT * from system_virtual_schema.tables'
+    _SELECT_VIRTUAL_COLUMNS = 'SELECT * from system_virtual_schema.columns'
+
+    def __init__(self, connection, timeout):
+        super(SchemaParserV4, self).__init__(connection, timeout)
+        self.virtual_keyspace_rows = defaultdict(list)
+        self.virtual_tables_rows = defaultdict(list)
+        self.virtual_columns_rows = defaultdict(lambda: defaultdict(list))
+
+    def _query_all(self):
+        cl = ConsistencyLevel.ONE
+        queries = [
+            QueryMessage(query=self._SELECT_VIRTUAL_KEYSPACES, consistency_level=cl),
+            QueryMessage(query=self._SELECT_VIRTUAL_TABLES, consistency_level=cl),
+            QueryMessage(query=self._SELECT_VIRTUAL_COLUMNS, consistency_level=cl),
+        ]
+        # C* V4's schema is purely additive on V3's
+        extra_responses = super(SchemaParserV4, self)._query_all(extension_queries=queries)
+
+        ((virtual_ks_success, virtual_ks_result),
+         (virtual_table_success, virtual_table_result),
+         (virtual_column_success, virtual_column_result)
+         ) = extra_responses
+
+        self.virtual_keyspaces_result = self._handle_results(virtual_ks_success,
+                                                             virtual_ks_result)
+        self.virtual_tables_result = self._handle_results(virtual_table_success,
+                                                          virtual_table_result)
+        self.virtual_columns_result = self._handle_results(virtual_column_success,
+                                                           virtual_column_result)
+        self._aggregate_results(called_by=self.__class__)
+
+    def _aggregate_results(self, called_by=None):
+        if called_by is not SchemaParserV4:
+            # TODO: this is a hack. We only want to call this when we're done
+            # with SPV4's _query_all, so we skip it in that case.
+            # Refactor the SchemaParsers to avoid this.
+            return
+        super(SchemaParserV4, self)._aggregate_results()
+
+        m = self.virtual_keyspace_rows
+        for row in self.virtual_keyspaces_result:
+            m[row["keyspace_name"]].append(row)
+
+        m = self.virtual_tables_rows
+        for row in self.virtual_tables_result:
+            m[row["keyspace_name"]].append(row)
+
+        m = self.virtual_columns_rows
+        # ...
 
 
 class TableMetadataV3(TableMetadata):
