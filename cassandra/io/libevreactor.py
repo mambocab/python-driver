@@ -343,13 +343,13 @@ class LibevConnection(Connection):
                 if len(buf) < self.in_buffer_size:
                     break
         except socket.error as err:
-            # sock_recv expects EWOULDBLOCK if socket provides no data, but
-            # nonblocking ssl sockets raise these instead, so we handle them
-            # ourselves by yielding to the event loop, where the socket will
-            # get the reading/writing it "wants" before retrying
             if ssl and isinstance(err, ssl.SSLError):
                 if err.args[0] not in (ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE):
                     self.defunct(err)
+                # nonblocking ssl sockets can raise WANT_{READ,WRITE} instead
+                # of EWOULDBLOCK, so in those cases we return to the event loop
+                # and let the socket get the reading/writing it "wants" before
+                # retrying
                 return
             elif err.args[0] not in NONBLOCKING:
                 self.defunct(err)
