@@ -1,4 +1,4 @@
-from cassandra.connection import Connection, ConnectionShutdown
+from cassandra.connection import Connection, ConnectionShutdown, is_expected_nonblocking_socket_error
 
 import asyncio
 import logging
@@ -193,14 +193,8 @@ class AsyncioConnection(Connection):
                 buf = yield from self._loop.sock_recv(self._socket, self.in_buffer_size)
                 self._iobuf.write(buf)
             except socket.error as err:
-                if ssl and isinstance(err, ssl.SSLError):
-                    if err.args[0] not in (ssl.SSL_ERROR_WANT_READ,
-                                           ssl.SSL_ERROR_WANT_WRITE):
-                        self.defunct(err)
-                    # nonblocking ssl sockets can raise WANT_{READ,WRITE} instead
-                    # of EWOULDBLOCK, so in those cases we return to the event loop
-                    # and let the socket get the reading/writing it "wants" before
-                    # retrying
+                if is_expected_nonblocking_socket_error(err):
+                    # don't defunct if it's an acceptable error
                     return
                 log.debug("Exception during socket recv for %s: %s",
                           self, err)

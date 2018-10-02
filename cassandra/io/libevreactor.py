@@ -25,7 +25,7 @@ import weakref
 from six.moves import range
 
 from cassandra.connection import (Connection, ConnectionShutdown,
-                                  NONBLOCKING, Timer, TimerManager)
+                                  NONBLOCKING, Timer, TimerManager, is_expected_nonblocking_socket_error)
 try:
     import cassandra.io.libevwrapper as libev
 except ImportError:
@@ -316,11 +316,11 @@ class LibevConnection(Connection):
             try:
                 sent = self._socket.send(next_msg)
             except socket.error as err:
-                if (err.args[0] in NONBLOCKING):
+                if is_expected_nonblocking_socket_error(err):
                     with self._deque_lock:
                         self.deque.appendleft(next_msg)
-                else:
-                    self.defunct(err)
+                    return
+                self.defunct(err)
                 return
             else:
                 if sent < len(next_msg):
@@ -343,17 +343,10 @@ class LibevConnection(Connection):
                 if len(buf) < self.in_buffer_size:
                     break
         except socket.error as err:
-            if ssl and isinstance(err, ssl.SSLError):
-                if err.args[0] not in (ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE):
-                    self.defunct(err)
-                # nonblocking ssl sockets can raise WANT_{READ,WRITE} instead
-                # of EWOULDBLOCK, so in those cases we return to the event loop
-                # and let the socket get the reading/writing it "wants" before
-                # retrying
+            if is_expected_nonblocking_socket_error(err):
                 return
-            elif err.args[0] not in NONBLOCKING:
-                self.defunct(err)
-                return
+            self.defunct(err)
+            return
 
         if self._iobuf.tell():
             self.process_io_buffer()

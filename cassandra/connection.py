@@ -128,8 +128,18 @@ class _Frame(object):
         return "ver({0}); flags({1:04b}); stream({2}); op({3}); offset({4}); len({5})".format(self.version, self.flags, self.stream, self.opcode, self.body_offset, self.end_pos - self.body_offset)
 
 
-
 NONBLOCKING = (errno.EAGAIN, errno.EWOULDBLOCK)
+SSL_NONBLOCKING = ((ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE)
+                   if ssl
+                   else ())
+
+
+def is_expected_nonblocking_socket_error(err, _nonblocking=NONBLOCKING, _ssl_nonblocking=SSL_NONBLOCKING):
+    # assumes that we've been passed a socket.error (or subclass) instance
+    no = err.errno
+    if ssl and isinstance(err, ssl.SSLError):
+        return (no in _ssl_nonblocking)
+    return (no in _nonblocking)
 
 
 class ConnectionException(Exception):
