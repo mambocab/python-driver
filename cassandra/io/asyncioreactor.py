@@ -181,6 +181,8 @@ class AsyncioConnection(Connection):
                 if next_msg:
                     yield from self._loop.sock_sendall(self._socket, next_msg)
             except socket.error as err:
+                if is_expected_nonblocking_socket_error(err):
+                    return
                 log.debug("Exception in send for %s: %s", self, err)
                 self.defunct(err)
                 return
