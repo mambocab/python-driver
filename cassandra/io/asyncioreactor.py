@@ -37,7 +37,8 @@ class AsyncioTimer(object):
     @property
     def end(self):
         raise NotImplementedError('{} is not compatible with TimerManager and '
-                                  'does not implement .end()')
+                                  'does not implement .end()'.format(
+                                      self.__class__.__name__))
 
     def __init__(self, timeout, callback, loop):
         delayed = self._call_delayed_coro(timeout=timeout,
