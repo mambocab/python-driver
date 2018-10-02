@@ -7,23 +7,19 @@ except (ImportError, SyntaxError):
     ASYNCIO_AVAILABLE = False
 
 from tests import is_monkey_patched, connection_class
-from tests.unit.io.utils import TimerCallback, TimerTestMixin
+from tests.unit.io.utils import TimerCallback, TimerTestMixin, ReactorTestMixin
 
 from mock import patch
+import socket
 
 import unittest
 import time
-
 skip_me = (is_monkey_patched() or
            (not ASYNCIO_AVAILABLE) or
            (connection_class is not AsyncioConnection))
 
 
-@unittest.skipIf(is_monkey_patched(), 'runtime is monkey patched for another reactor')
-@unittest.skipIf(connection_class is not AsyncioConnection,
-                 'not running asyncio tests; current connection_class is {}'.format(connection_class))
-@unittest.skipUnless(ASYNCIO_AVAILABLE, "asyncio is not available for this runtime")
-class AsyncioTimerTests(TimerTestMixin, unittest.TestCase):
+class AsyncioTestMixin(object):
 
     @classmethod
     def setUpClass(cls):
@@ -62,7 +58,14 @@ class AsyncioTimerTests(TimerTestMixin, unittest.TestCase):
 
         self.addCleanup(reset_selector)
 
-        super(AsyncioTimerTests, self).setUp()
+        super(AsyncioTestMixin, self).setUp()
+
+
+@unittest.skipIf(is_monkey_patched(), 'runtime is monkey patched for another reactor')
+@unittest.skipIf(connection_class is not AsyncioConnection,
+                 'not running asyncio tests; current connection_class is {}'.format(connection_class))
+@unittest.skipUnless(ASYNCIO_AVAILABLE, "asyncio is not available for this runtime")
+class AsyncioTimerTests(AsyncioTestMixin, TimerTestMixin, unittest.TestCase):
 
     def test_timer_cancellation(self):
         # Various lists for tracking callback stage
@@ -74,3 +77,11 @@ class AsyncioTimerTests(TimerTestMixin, unittest.TestCase):
         time.sleep(.2)
         # Assert that the cancellation was honored
         self.assertFalse(callback.was_invoked())
+
+
+@unittest.skipIf(is_monkey_patched(), 'runtime is monkey patched for another reactor')
+@unittest.skipIf(connection_class is not AsyncioConnection,
+                 'not running asyncio tests; current connection_class is {}'.format(connection_class))
+@unittest.skipUnless(ASYNCIO_AVAILABLE, "asyncio is not available for this runtime")
+class AsynioConnectionTest(ReactorTestMixin, AsyncioTestMixin, unittest.TestCase):
+    socket_attr_name = '_socket'

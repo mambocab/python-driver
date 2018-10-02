@@ -20,10 +20,12 @@ from mock import patch
 import socket
 import cassandra.io.asyncorereactor
 from cassandra.io.asyncorereactor import AsyncoreConnection
-from tests import is_monkey_patched
+from tests import is_monkey_patched, connection_class
 from tests.unit.io.utils import ReactorTestMixin, TimerTestMixin, noop_if_monkey_patched
 
 
+@unittest.skipIf(connection_class is not AsyncoreConnection,
+                 'not running asyncore tests; current connection_class is {}'.format(connection_class))
 class AsyncorePatcher(unittest.TestCase):
 
     @classmethod
