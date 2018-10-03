@@ -25,7 +25,7 @@ import weakref
 from six.moves import range
 
 from cassandra.connection import (Connection, ConnectionShutdown,
-                                  NONBLOCKING, Timer, TimerManager)
+                                  NONBLOCKING, Timer, TimerManager, is_expected_nonblocking_socket_error)
 try:
     import cassandra.io.libevwrapper as libev
 except ImportError:
@@ -316,7 +316,7 @@ class LibevConnection(Connection):
             try:
                 sent = self._socket.send(next_msg)
             except socket.error as err:
-                if (err.args[0] in NONBLOCKING):
+                if is_expected_nonblocking_socket_error(err):
                     with self._deque_lock:
                         self.deque.appendleft(next_msg)
                 else:

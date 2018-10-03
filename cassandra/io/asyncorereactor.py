@@ -37,7 +37,7 @@ try:
 except ImportError:
     ssl = None  # NOQA
 
-from cassandra.connection import Connection, ConnectionShutdown, NONBLOCKING, Timer, TimerManager
+from cassandra.connection import Connection, ConnectionShutdown, NONBLOCKING, Timer, TimerManager, is_expected_nonblocking_socket_error
 
 log = logging.getLogger(__name__)
 
@@ -402,7 +402,7 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 sent = self.send(next_msg)
                 self._readable = True
             except socket.error as err:
-                if (err.args[0] in NONBLOCKING):
+                if is_expected_nonblocking_socket_error(err):
                     with self.deque_lock:
                         self.deque.appendleft(next_msg)
                 else:
