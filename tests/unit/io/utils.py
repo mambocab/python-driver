@@ -347,6 +347,7 @@ class ReactorTestMixin(object):
         self.get_socket(c).send.side_effect = lambda x: len(x)
         c.handle_write(*self.null_handle_function_args)
         self.assertFalse(c.is_defunct)
+        self.assertTrue(self.get_socket(c).send.called)
         self.assertTrue(self.get_socket(c).send.call_args is not None)
 
     def test_partial_send(self):

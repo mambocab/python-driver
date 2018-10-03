@@ -19,6 +19,11 @@ skip_me = (is_monkey_patched() or
            (connection_class is not AsyncioConnection))
 
 
+import logging
+
+log = logging.getLogger(__name__)
+
+
 class AsyncioTestMixin(object):
 
     @classmethod
@@ -46,7 +51,7 @@ class AsyncioTestMixin(object):
     def setUp(self):
         if skip_me:
             return
-        socket_patcher = patch('socket.socket')
+        socket_patcher = patch('socket.socket', spec=socket.socket)
         self.addCleanup(socket_patcher.stop)
         socket_patcher.start()
 
@@ -83,5 +88,42 @@ class AsyncioTimerTests(AsyncioTestMixin, TimerTestMixin, unittest.TestCase):
 @unittest.skipIf(connection_class is not AsyncioConnection,
                  'not running asyncio tests; current connection_class is {}'.format(connection_class))
 @unittest.skipUnless(ASYNCIO_AVAILABLE, "asyncio is not available for this runtime")
-class AsynioConnectionTest(ReactorTestMixin, AsyncioTestMixin, unittest.TestCase):
+class AsyncioConnectionTest(ReactorTestMixin, AsyncioTestMixin, unittest.TestCase):
+
+    def make_connection(self):
+        c = super(AsyncioConnectionTest, self).make_connection()
+
+        import asyncio
+
+        _cached_handle_write = c.handle_write
+        _cached_handle_read = c.handle_read
+        print(_cached_handle_read)
+        assert asyncio.iscoroutinefunction(_cached_handle_read)
+        print(_cached_handle_write)
+        assert asyncio.iscoroutinefunction(_cached_handle_write)
+
+        def handle_write_synchronous():
+            log.debug('in handle_write_synchronous')
+            rv = c._loop.call_soon_threadsafe(
+                _cached_handle_write
+            )
+            return rv
+
+        def handle_read_synchronous(*args, **kwargs):
+            log.debug('in handle_read_synchronous')
+            return c._loop.call_soon_threadsafe(
+                _cached_handle_read
+            )
+
+        c.handle_write = handle_write_synchronous
+        c.handle_read = handle_read_synchronous
+        return c
+
+    # internally, AsyncioConnection's handle_write blocks on having something
+    # pushed to its queue, so we can't check that that writing calls `send` the
+    # way that other reactors do
+    test_blocking_on_write = unittest.skip('cannot test blocking on write')(
+        ReactorTestMixin.test_blocking_on_write
+    )
+
     socket_attr_name = '_socket'

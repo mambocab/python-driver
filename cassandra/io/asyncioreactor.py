@@ -4,7 +4,6 @@ import asyncio
 import logging
 import os
 import socket
-import ssl
 from threading import Lock, Thread, get_ident
 
 
@@ -37,8 +36,7 @@ class AsyncioTimer(object):
     @property
     def end(self):
         raise NotImplementedError('{} is not compatible with TimerManager and '
-                                  'does not implement .end()'.format(
-                                      self.__class__.__name__))
+                                  'does not implement .end()'.format(self.__class__.__name__))
 
     def __init__(self, timeout, callback, loop):
         delayed = self._call_delayed_coro(timeout=timeout,
@@ -156,6 +154,7 @@ class AsyncioConnection(Connection):
             self.connected_event.set()
 
     def push(self, data):
+        log.debug('push({})'.format(repr(data)))
         buff_size = self.out_buffer_size
         if len(data) > buff_size:
             for i in range(0, len(data), buff_size):
@@ -177,9 +176,14 @@ class AsyncioConnection(Connection):
     def handle_write(self):
         while True:
             try:
+                print('handling write')
                 next_msg = yield from self._write_queue.get()
+                print('got ' + next_msg)
                 if next_msg:
+                    print('in next_msg')
                     yield from self._loop.sock_sendall(self._socket, next_msg)
+                else:
+                    print("didn't get next_msg")
             except socket.error as err:
                 if is_expected_nonblocking_socket_error(err):
                     return
