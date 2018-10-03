@@ -176,9 +176,9 @@ class AsyncioConnection(Connection):
     def handle_write(self):
         while True:
             try:
-                print('handling write')
+                log.debug('handling write')
                 next_msg = yield from self._write_queue.get()
-                print('got ' + next_msg)
+                log.debug('got next_msg')
                 if next_msg:
                     print('in next_msg')
                     yield from self._loop.sock_sendall(self._socket, next_msg)
@@ -197,6 +197,7 @@ class AsyncioConnection(Connection):
     def handle_read(self):
         while True:
             try:
+                log.debug('handling read')
                 buf = yield from self._loop.sock_recv(self._socket, self.in_buffer_size)
                 self._iobuf.write(buf)
             except socket.error as err:
