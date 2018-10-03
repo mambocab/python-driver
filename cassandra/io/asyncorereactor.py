@@ -403,6 +403,8 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 self._readable = True
             except socket.error as err:
                 if is_expected_nonblocking_socket_error(err):
+                    with self.deque_lock:
+                        self.deque.appendleft(next_msg)
                     return
                 self.defunct(err)
                 return
