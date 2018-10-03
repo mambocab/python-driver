@@ -248,6 +248,7 @@ class ReactorTestMixin(object):
         return c
 
     def test_eagain_on_buffer_size(self):
+        import logging ; log = logging.getLogger(__name__)
         c = self.test_successful_connection()
 
         header = six.b('\x00\x00\x00\x00') + int32_pack(20000)
@@ -260,6 +261,7 @@ class ReactorTestMixin(object):
 
         def side_effect(*args):
             response = responses.pop(0)
+            log.debug('recv called again; returning {}'.format(response))
             if isinstance(response, socket_error):
                 raise response
             else:
@@ -267,6 +269,8 @@ class ReactorTestMixin(object):
 
         self.get_socket(c).recv.side_effect = side_effect
         c.handle_read(*self.null_handle_function_args)
+        # import time ; time.sleep(3)
+        log.debug('checking current frame')
         self.assertEqual(c._current_frame.end_pos, 20000 + len(header))
         # the EAGAIN prevents it from reading the last 100 bytes
         c._iobuf.seek(0, os.SEEK_END)
