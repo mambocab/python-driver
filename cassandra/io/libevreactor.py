@@ -346,8 +346,7 @@ class LibevConnection(Connection):
             log.debug('got error {}'.format(err))
             if is_expected_nonblocking_socket_error(err):
                 return
-            else:
-                self.defunct(err)
+            self.defunct(err)
 
         if self._iobuf.tell():
             self.process_io_buffer()
