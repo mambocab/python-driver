@@ -180,7 +180,8 @@ class AsyncioConnection(Connection):
                     yield from self._loop.sock_sendall(self._socket, next_msg)
             except socket.error as err:
                 if is_expected_nonblocking_socket_error(err):
-                    return
+                    yield
+                    continue
                 log.debug("Exception in send for %s: %s", self, err)
                 self.defunct(err)
                 return
@@ -195,11 +196,12 @@ class AsyncioConnection(Connection):
                 self._iobuf.write(buf)
             except socket.error as err:
                 if is_expected_nonblocking_socket_error(err):
-                    return
-                else:
-                    log.debug("Exception during socket recv for %s: %s",
-                              self, err)
-                    self.defunct(err)
+                    yield
+                    continue
+                log.debug("Exception during socket recv for %s: %s",
+                          self, err)
+                self.defunct(err)
+                return
             except asyncio.CancelledError:
                 return
 
