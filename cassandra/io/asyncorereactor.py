@@ -405,8 +405,8 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 if is_expected_nonblocking_socket_error(err):
                     with self.deque_lock:
                         self.deque.appendleft(next_msg)
-                    return
-                self.defunct(err)
+                else:
+                    self.defunct(err)
                 return
             else:
                 if sent < len(next_msg):
@@ -423,10 +423,8 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 if len(buf) < self.in_buffer_size:
                     break
         except socket.error as err:
-            if is_expected_nonblocking_socket_error(err):
-                # don't defunct if it's an acceptable error
-                return
-            self.defunct(err)
+            if not is_expected_nonblocking_socket_error(err):
+                self.defunct(err)
             return
 
         if self._iobuf.tell():
