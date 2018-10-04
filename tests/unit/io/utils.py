@@ -251,16 +251,27 @@ class ReactorTestMixin(object):
         return c
 
     def test_eagain_on_buffer_size(self):
-        import logging ; log = logging.getLogger(__name__)
+        self._check_buffer_size_with_error(errno.EAGAIN)
+
+    def test_ewouldblock_on_buffer_size(self):
+        self._check_buffer_size_with_error(errno.EWOULDBLOCK)
+
+    def test_ewantread_on_buffer_size(self):
+        self._check_buffer_size_with_error(ssl.SSL_ERROR_WANT_READ)
+
+    def test_ewantwrite_on_buffer_size(self):
+        self._check_buffer_size_with_error(ssl.SSL_ERROR_WANT_WRITE)
+
+    def _check_buffer_size_with_error(self, err_code):
         c = self.test_successful_connection()
 
         header = six.b('\x00\x00\x00\x00') + int32_pack(20000)
         responses = [
             header + (six.b('a') * (4096 - len(header))),
             six.b('a') * 4096,
-            socket_error(errno.EAGAIN),
+            socket_error(err_code),
             six.b('a') * 100,
-            socket_error(errno.EAGAIN)]
+            socket_error(err_code)]
 
         def side_effect(*args):
             response = responses.pop(0)
