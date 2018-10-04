@@ -25,6 +25,7 @@ from six import binary_type, BytesIO
 from mock import Mock
 
 import errno
+import logging
 import math
 import os
 from socket import error as socket_error
@@ -36,6 +37,8 @@ except ImportError:
     import unittest # noqa
 
 import time
+
+log = logging.getLogger(__name__)
 
 
 class TimerCallback(object):
