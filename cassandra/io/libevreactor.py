@@ -338,9 +338,7 @@ class LibevConnection(Connection):
             return
         try:
             while True:
-                log.debug('back in the handle_read loop')
                 buf = self._socket.recv(self.in_buffer_size)
-                log.debug('got buf; {}'.format(buf))
                 self._iobuf.write(buf)
                 if len(buf) < self.in_buffer_size:
                     break
@@ -352,9 +350,7 @@ class LibevConnection(Connection):
                 self.defunct(err)
 
         if self._iobuf.tell():
-            log.debug('processing io bufffer')
             self.process_io_buffer()
-            log.debug('processed io bufffer')
         else:
             log.debug("Connection %s closed by server", self)
             self.close()

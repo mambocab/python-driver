@@ -439,31 +439,3 @@ class ReactorTestMixin(object):
 
         self.assertTrue(c.connected_event.is_set())
         self.assertFalse(c.is_defunct)
-
-#     def _check_expected_behavior_on_nonblocking_error(self, send_or_read, err):
-#         c = self.test_successful_connection()
-#         sock = self.get_socket(c)
-
-#         class FailOnceWrapper(object):
-#             called = False
-#             err = err
-
-#             def __init__(self, wrapped):
-#                 self.wrapped = wrapped
-
-#             def __call__(self, *args, **kwargs):
-#                 if not self.called:
-#                     self.called = True
-#                     raise self.err
-#                 return self.wrapped(*args, **kwargs)
-
-#         if send_or_read == 'send':
-#             sock.send = FailOnceWrapper(sock.send)
-#         elif send_or_read == 'read':
-#             sock.read = FailOnceWrapper(sock.read)
-#         else:
-#             raise ValueError(
-#                 'send_or_read must be "send" or "read"; recieved {}'.format(
-#                     send_or_read))
-
-#         self.

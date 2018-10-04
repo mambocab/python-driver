@@ -578,7 +578,6 @@ class Connection(object):
         self._current_frame = None
 
     def process_io_buffer(self):
-        log.debug('processing io buffer')
         while True:
             if not self._current_frame:
                 pos = self._read_frame_header()
@@ -589,11 +588,9 @@ class Connection(object):
                 # we don't have a complete header yet or we
                 # already saw a header, but we don't have a
                 # complete message yet
-                log.debug('incomplete header/message')
                 return
             else:
                 frame = self._current_frame
-                log.debug('frame: {}'.format(frame))
                 self._iobuf.seek(frame.body_offset)
                 msg = self._iobuf.read(frame.end_pos - frame.body_offset)
                 self.process_msg(frame, msg)
