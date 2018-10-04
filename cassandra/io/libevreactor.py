@@ -346,10 +346,10 @@ class LibevConnection(Connection):
                     break
         except socket.error as err:
             log.debug('got error {}'.format(err))
-            if not is_expected_nonblocking_socket_error(err):
-                self.defunct(err)
-            else:
+            if is_expected_nonblocking_socket_error(err):
                 return
+            else:
+                self.defunct(err)
 
         if self._iobuf.tell():
             log.debug('processing io bufffer')
