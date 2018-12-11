@@ -36,7 +36,7 @@ class SimulacronBase(unittest.TestCase):
 
 class SimulacronCluster(SimulacronBase):
 
-    cluster, connect = None, True
+    cluster, cluster_kwargs, connect = None, None, True
 
     @classmethod
     def setUpClass(cls):
@@ -45,7 +45,9 @@ class SimulacronCluster(SimulacronBase):
 
         start_and_prime_singledc()
         if cls.connect:
-            cls.cluster = Cluster(protocol_version=PROTOCOL_VERSION, compression=False)
+            cls.cluster = Cluster(protocol_version=PROTOCOL_VERSION,
+                                  compression=False,
+                                  **(cls.cluster_kwargs or {}))
             cls.session = cls.cluster.connect(wait_for_all_pools=True)
 
     @classmethod

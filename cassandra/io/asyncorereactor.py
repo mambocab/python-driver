@@ -441,6 +441,7 @@ class AsyncoreConnection(Connection, asyncore.dispatcher):
                 self._readable = False
 
     def push(self, data):
+        log.debug('pushed {}'.format(data))
         sabs = self.out_buffer_size
         if len(data) > sabs:
             chunks = []

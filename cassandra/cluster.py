@@ -3546,6 +3546,7 @@ class ResponseFuture(object):
         set in those cases, where ``_on_timeout`` reschedules itself.
         """
         # PYTHON-853: for short timeouts, we sometimes race with our __init__
+        log.debug('_connection: {}, _attempts: {}'.format(self._connection, _attempts))
         if self._connection is None and _attempts < 3:
             self._timer = self.session.cluster.connection_class.create_timer(
                 0.01,
@@ -3553,13 +3554,17 @@ class ResponseFuture(object):
             )
             return
 
+        # 1044: allegedly the hang can happen here...
         if self._connection is not None:
             try:
+                # because the requests have already been zeroed out
                 self._connection._requests.pop(self._req_id)
+                log.debug('timing out; popped {}'.format(self._req_id))
             # This prevents the race condition of the
             # event loop thread just receiving the waited message
             # If it arrives after this, it will be ignored
             except KeyError:
+                log.debug('could not pop {}'.format(self._req_id))
                 return
 
             pool = self.session._pools.get(self._current_host)

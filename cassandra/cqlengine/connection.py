@@ -329,7 +329,7 @@ def execute(query, params=None, consistency_level=None, timeout=NOT_SET, connect
         raise CQLEngineException("It is required to setup() cqlengine before executing queries")
 
     if isinstance(query, SimpleStatement):
-        pass  #
+        pass
     elif isinstance(query, BaseCQLStatement):
         params = query.get_context()
         query = SimpleStatement(str(query), consistency_level=consistency_level, fetch_size=query.fetch_size)

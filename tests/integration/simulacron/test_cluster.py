@@ -18,11 +18,16 @@ except ImportError:
 
 from tests.integration.simulacron import SimulacronCluster
 from tests.integration import (requiressimulacron, PROTOCOL_VERSION)
-from tests.integration.simulacron.utils import prime_query
+from tests.integration.simulacron.utils import prime_query, NO_THEN
 
 from cassandra import (WriteTimeout, WriteType,
                        ConsistencyLevel, UnresolvableContactPoints)
 from cassandra.cluster import Cluster
+
+import logging
+
+
+log = logging.getLogger(__name__)
 
 
 @requiressimulacron
@@ -78,3 +83,44 @@ class ClusterDNSResolutionTests(SimulacronCluster):
             self.cluster = Cluster(['dns.invalid'],
                                    protocol_version=PROTOCOL_VERSION,
                                    compression=False)
+
+
+@requiressimulacron
+class AllConnectionsDroppedHangTest(SimulacronCluster):
+    # tests for PYTHON-1044
+
+    cluster_kwargs = {'idle_heartbeat_timeout': 5,
+                      'idle_heartbeat_interval': 1}
+
+    def tearDown(self):
+        if self.cluster:
+            self.cluster.shutdown()
+
+    def test_repro_deadlock(self):
+        from cassandra.policies import FallthroughRetryPolicy
+
+        self.cluster.default_retry_policy = FallthroughRetryPolicy
+
+        query_to_prime = "SELECT * from test_repro_deadlock.test_repro_deadlock"
+
+        # prepare a query that never returns
+        log.debug('priming query')
+        prime_query(
+            query_to_prime,
+            when=None,
+            then=NO_THEN
+        )
+        future = self.session.execute_async(query_to_prime)
+        import time
+        time.sleep(3)
+
+        # turn off heartbeat responses
+        prime_query(
+            None,
+            then=NO_THEN,
+            when={'request': 'options'}
+        )
+
+        # import time
+        # time.sleep(40)
+        future.result()

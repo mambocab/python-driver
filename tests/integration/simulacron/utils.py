@@ -14,12 +14,15 @@
 
 from six.moves.urllib.request import build_opener, Request, HTTPHandler
 import json
+import logging
 from tests.integration import CASSANDRA_VERSION, SIMULACRON_JAR
 import subprocess
 import time
-import nose
 
 DEFAULT_CLUSTER = "python_simulacron_cluster"
+
+
+log = logging.getLogger(__name__)
 
 
 class SimulacronCluster(object):
@@ -61,7 +64,7 @@ class SimulacronServer(object):
         self.proc = None
 
     def start(self):
-        self.proc = subprocess.Popen(['java', '-jar', self.jar_path, "--loglevel", "ERROR"], shell=False)
+        self.proc = subprocess.Popen(['java', '-jar', self.jar_path, "--loglevel", "INFO"], shell=False)
         self.running = True
 
     def stop(self):
@@ -86,8 +89,9 @@ def start_simulacron():
 
     SERVER_SIMULACRON.start()
 
-    #TODO improve this sleep, maybe check the logs like ccm
+    # TODO improve this sleep, maybe check the logs like ccm
     time.sleep(5)
+
 
 def stop_simulacron():
     SERVER_SIMULACRON.stop()
@@ -106,6 +110,9 @@ class SimulacronClient(object):
         request.get_method = lambda: query.method
         request.add_header("Content-Type", 'application/json')
         request.add_header("Content-Length", len(data))
+
+        log.debug('submitting request: {}, data={}'.format(request.full_url,
+                                                           request.data))
 
         connection = opener.open(request)
         return connection.read().decode('utf-8')
@@ -231,13 +238,15 @@ class PrimeQuery(SimulacronRequest):
         self.path = "prime/{}".format(cluster_name)
         self.then = then
         self.when = when
+        log.debug('Created {}'.format(self))
 
     def fetch_json(self):
         json_dict = {}
         then = {}
         when = {}
 
-        when['query'] = self.expected_query
+        if self.expected_query is not None:
+            when['query'] = self.expected_query
         then['result'] = self.result
         if self.rows is not None:
             then['rows'] = self.rows
@@ -274,6 +283,24 @@ class PrimeQuery(SimulacronRequest):
     def method(self):
         return "POST"
 
+    def __repr__(self):
+        return ('{cls}(expected_query={expected_query}, '
+                'result={result}, '
+                'rows={rows}, '
+                'column_types={column_types}, '
+                'path={path}, '
+                'then={then}, '
+                'when={when}'
+                ')').format(cls=self.__class__.__name__,
+                            expected_query=self.expected_query,
+                            result=self.result,
+                            rows=self.rows,
+                            column_types=repr(self.column_types),
+                            path=repr(self.path),
+                            then=self.then,
+                            when=self.when)
+
+
 class ClusterQuery(SimulacronRequest):
     """
     Class used for creating a cluster
@@ -300,6 +327,21 @@ class ClusterQuery(SimulacronRequest):
     def method(self):
         return "POST"
 
+    def __repr__(self):
+        return ('<{cls} cluster_name={cluster_name}, '
+                'cassandra_version={cassandra_version}, '
+                'data_centers={data_centers}, '
+                'json_dict={json_dict}. '
+                'url_params={url_params}>').format(
+                    cls=self.__class__.__name__,
+                    cluster_name=repr(self.cluster_name),
+                    cassandra_version=repr(self.cassandra_version),
+                    data_centers=repr(self.data_centers),
+                    json_dict=self.json_dict,
+                    url_params=self.fetch_url_params()
+        )
+
+
 def prime_driver_defaults():
     """
     Function to prime the necessary queries so the test harness can run
@@ -319,6 +361,7 @@ def prime_cluster(data_centers="3", version=CASSANDRA_VERSION, cluster_name=DEFA
     version = version or CASSANDRA_VERSION.base_version
     cluster_query = ClusterQuery(cluster_name, version, data_centers)
     client_simulacron = SimulacronClient()
+    log.debug(cluster_query)
     response = client_simulacron.submit_request(cluster_query)
     return SimulacronCluster(response)
 
@@ -362,7 +405,7 @@ def prime_request(request):
     return SimulacronClient().submit_request(request)
 
 
-def prime_query(query, rows=default_rows, column_types=default_column_types, when=None, then=None, cluster_name=DEFAULT_CLUSTER):
+def prime_query(query, rows=None, column_types=None, when=None, then=None, cluster_name=DEFAULT_CLUSTER):
     """
     Shortcut function for priming a query
     :return:

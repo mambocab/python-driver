@@ -1,0 +1,52 @@
+A request is sent and addded to the request queue of the connection.  It then waits for the response future to trigger the event that it has finished:
+
+```
+# cluster.py:4087
+         self._event.wait()
+```
+
+Client loses network connection to all contact points.
+
+Heartbeat defuncts connection and clears request queue for connection
+```
+# connection.py:404
+def error_all_requests(self, exc):
+    with self.lock:
+        requests = self._requests
+        self._requests = {}
+```
+
+Response future times out and checks if it is still in request queue 
+
+```
+# cluster.py:3551
+    def _on_timeout(self, _attempts=0):
+        """
+        Called when the request associated with this ResponseFuture times out.
+
+        This function may reschedule itself. The ``_attempts`` parameter tracks
+        the number of times this has happened. This parameter should only be
+        set in those cases, where ``_on_timeout`` reschedules itself.
+        """
+        # PYTHON-853: for short timeouts, we sometimes race with our __init__
+        if self._connection is None and _attempts < 3:
+            self._timer = self.session.cluster.connection_class.create_timer(
+                0.01,
+                partial(self._on_timeout, _attempts=_attempts + 1)
+            )
+            return
+
+        if self._connection is not None:
+            try:
+                self._connection._requests.pop(self._req_id)
+            # This prevents the race condition of the
+            # event loop thread just receiving the waited message
+            # If it arrives after this, it will be ignored
+            except KeyError:
+                return
+```
+
+As it has been removed from the request queue, it assumes it has already completed and does not throw an exception. As the pool has been shut down, the retry task never causes it to be added to the request queue again, thereby leaving it stuck waiting for a response that will never arrive.
+
+Even if the connection reappears, this request is never readded to the queue, leaving the whole thread stuck.
+

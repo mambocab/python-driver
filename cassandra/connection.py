@@ -389,6 +389,7 @@ class Connection(object):
         raise NotImplementedError()
 
     def defunct(self, exc):
+        log.debug('defuncting connection')
         with self.lock:
             if self.is_defunct or self.is_closed:
                 return
@@ -410,12 +411,21 @@ class Connection(object):
         return exc
 
     def error_all_requests(self, exc):
+        log.debug('erroring out all requests')
         with self.lock:
             requests = self._requests
+            # 1044: here's the first move in the bad pattern
             self._requests = {}
+            log.debug('self._requests contained {}'.format(requests))
 
         if not requests:
             return
+
+        # try to trigger the hang. this sleeps when there was >0 request in the
+        # queue, hopefully allowing a lot of time for `_on_timeout` to get
+        # called
+        import time
+        time.sleep(15)
 
         new_exc = ConnectionShutdown(str(exc))
         def try_callback(cb):
@@ -428,10 +438,13 @@ class Connection(object):
 
         # run first callback from this thread to ensure pool state before leaving
         cb, _, _ = requests.popitem()[1]
+        log.debug('callback: {}'.format(cb))
         try_callback(cb)
 
         if not requests:
             return
+
+        # import time
 
         # additional requests are optionally errored from a separate thread
         # The default callback and retry logic is fairly expensive -- we don't
@@ -1009,7 +1022,9 @@ class ConnectionHeartbeat(Thread):
         pass
 
     def run(self):
+        log.debug('heartbeat about to wait for shutdown event')
         self._shutdown_event.wait(self._interval)
+        log.debug('heartbeat proceeding')
         while not self._shutdown_event.is_set():
             start_time = time.time()
 
@@ -1018,8 +1033,10 @@ class ConnectionHeartbeat(Thread):
             try:
                 for connections, owner in [(o.get_connections(), o) for o in self._get_connection_holders()]:
                     for connection in connections:
+                        log.debug('heartbeat checking connection {} owned by {}'.format(connection, owner))
                         self._raise_if_stopped()
                         if not (connection.is_defunct or connection.is_closed):
+                            log.debug('connection not defunct or closed')
                             if connection.is_idle:
                                 try:
                                     futures.append(HeartbeatFuture(connection, owner))
@@ -1039,6 +1056,7 @@ class ConnectionHeartbeat(Thread):
                 # Wait max `self._timeout` seconds for all HeartbeatFutures to complete
                 timeout = self._timeout
                 start_time = time.time()
+                log.debug('about to check futures')
                 for f in futures:
                     self._raise_if_stopped()
                     connection = f.connection
@@ -1076,6 +1094,7 @@ class ConnectionHeartbeat(Thread):
 
     def _raise_if_stopped(self):
         if self._shutdown_event.is_set():
+            log.debug('raising because we are stopped')
             raise self.ShutdownException()
 
 
